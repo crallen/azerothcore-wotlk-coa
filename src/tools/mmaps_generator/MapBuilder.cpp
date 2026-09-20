@@ -97,7 +97,7 @@ namespace MMAP
     {
         std::vector<std::string> files;
         uint32 mapID, tileX, tileY, tileID, count = 0, fsize = 0;
-        char filter[12];
+        char filter[16];
 
         printf("Discovering maps... ");
         getDirContents(files, m_config->MapsPath());
@@ -588,7 +588,7 @@ namespace MMAP
                                       dtNavMesh* navMesh)
     {
         // console output
-        char tileString[20];
+        char tileString[24];
         sprintf(tileString, "[Map %03i] [%02i,%02i]: ", mapID, tileX, tileY);
         printf("%s Building movemap tiles...\n", tileString);
 
