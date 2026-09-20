@@ -759,7 +759,10 @@ bool ConvertADT(std::string const& inputPath, std::string const& outputPath, int
                 }
 
                 liquid_entry[i][j] = h->LiquidType;
-                switch (LiquidTypes.at(h->LiquidType).SoundBank)
+                // A liquid id missing from LiquidType.dbc (Ascension's custom maps have
+                // them) leaves the chunk unflagged instead of aborting the extraction.
+                auto liquidType = LiquidTypes.find(h->LiquidType);
+                switch (liquidType != LiquidTypes.end() ? liquidType->second.SoundBank : uint8(-1))
                 {
                     case LIQUID_TYPE_WATER: liquid_flags[i][j] |= MAP_LIQUID_TYPE_WATER; break;
                     case LIQUID_TYPE_OCEAN: liquid_flags[i][j] |= MAP_LIQUID_TYPE_OCEAN; if (attrs.Deep) liquid_flags[i][j] |= MAP_LIQUID_TYPE_DARK_WATER; break;
