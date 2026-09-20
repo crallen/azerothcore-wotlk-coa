@@ -17,6 +17,8 @@
 
 #define _CRT_SECURE_NO_DEPRECATE
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <deque>
@@ -1172,6 +1174,29 @@ void LoadCommonMPQFiles()
     }
 }
 
+// Archives past the numbered ones, patch-A.MPQ through patch-WC3.MPQ in
+// Ascension's client, hold its terrain and models. The client loads them in
+// name order after the numbered ones; open them the same way so that, with
+// the last archive opened searched first, the file the client shows wins.
+void LoadCustomPatchMPQFiles()
+{
+    std::vector<std::pair<std::string, std::filesystem::path>> patches;
+    for (auto const& entry : std::filesystem::directory_iterator(std::filesystem::path(input_path) / "Data"))
+    {
+        std::string name = entry.path().filename().string();
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return std::tolower(c); });
+        if (name.rfind("patch-", 0) != 0 || name.size() <= 10 || name.compare(name.size() - 4, 4, ".mpq") != 0)
+            continue;
+        std::string tag = name.substr(6, name.size() - 10);
+        if (std::all_of(tag.begin(), tag.end(), [](unsigned char c) { return std::isdigit(c); }))
+            continue;
+        patches.emplace_back(name, entry.path());
+    }
+    std::sort(patches.begin(), patches.end());
+    for (auto const& [name, path] : patches)
+        new MPQArchive(path.string().c_str());
+}
+
 inline void CloseMPQFiles()
 {
     for (auto & gOpenArchive : gOpenArchives) gOpenArchive->close();
@@ -1236,6 +1261,7 @@ int main(int argc, char* arg[])
         // Open MPQs
         LoadLocaleMPQFiles(FirstLocale);
         LoadCommonMPQFiles();
+        LoadCustomPatchMPQFiles();
 
         ExtractCameraFiles(FirstLocale, true);
         // Close MPQs
@@ -1249,6 +1275,7 @@ int main(int argc, char* arg[])
         // Open MPQs
         LoadLocaleMPQFiles(FirstLocale);
         LoadCommonMPQFiles();
+        LoadCustomPatchMPQFiles();
 
         // Extract maps
         ExtractMapsFromMpq(build);

@@ -16,10 +16,14 @@
  */
 
 #define _CRT_SECURE_NO_DEPRECATE
+#include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
+#include <filesystem>
 #include <list>
 #include <map>
+#include <string>
 #include <sys/stat.h>
 #include <vector>
 
@@ -271,6 +275,29 @@ bool scan_patches(char* scanmatch, std::vector<std::string>& pArchiveNames)
     return (true);
 }
 
+// Archives past the numbered ones, patch-A.MPQ through patch-WC3.MPQ in
+// Ascension's client, hold its terrain and models. The client loads them in
+// name order after the numbered ones; list them the same way so that, with
+// the last archive opened searched first, the file the client shows wins.
+void scan_custom_patches(char const* dataDir, std::vector<std::string>& pArchiveNames)
+{
+    std::vector<std::pair<std::string, std::string>> patches;
+    for (auto const& entry : std::filesystem::directory_iterator(dataDir))
+    {
+        std::string name = entry.path().filename().string();
+        std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return std::tolower(c); });
+        if (name.rfind("patch-", 0) != 0 || name.size() <= 10 || name.compare(name.size() - 4, 4, ".mpq") != 0)
+            continue;
+        std::string tag = name.substr(6, name.size() - 10);
+        if (std::all_of(tag.begin(), tag.end(), [](unsigned char c) { return std::isdigit(c); }))
+            continue;
+        patches.emplace_back(name, entry.path().string());
+    }
+    std::sort(patches.begin(), patches.end());
+    for (auto const& [name, path] : patches)
+        pArchiveNames.push_back(path);
+}
+
 bool fillArchiveNameVector(std::vector<std::string>& pArchiveNames)
 {
     if (!hasInputPathParam)
@@ -350,6 +377,9 @@ bool fillArchiveNameVector(std::vector<std::string>& pArchiveNames)
         if (scan_patches(path, pArchiveNames))
             foundOne = true;
     }
+
+    printf("Scanning custom patch archives from data directory.\n");
+    scan_custom_patches(input_path, pArchiveNames);
 
     printf("\n");
 
