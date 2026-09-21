@@ -60,7 +60,9 @@
 #include "Battlefield.h"
 #include "BattlefieldMgr.h"
 #include "Chat.h"
+#include "StringConvert.h"
 #include "StringFormat.h"
+#include "Tokenize.h"
 #include "ClientDBC.h"
 #include "CommandScript.h"
 #include "ConfigValueCache.h"
@@ -350,6 +352,7 @@ enum class AscensionCompatConfig {
   CLASS_MODEL,
   ALLOW_LEARNED_SPELL_DELIVERY,
   LEARN_OWNED_COMPANIONS,
+  STARTER_VANITY_ITEMS,
   MAX_RIDING_FROM_START,
   LEVEL_SCALING,
   QUEST_LEVEL_SCALING,
@@ -391,6 +394,8 @@ public:
                          "CoA.AllowLearnedSpellDelivery", true);
     SetConfigValue<bool>(AscensionCompatConfig::LEARN_OWNED_COMPANIONS,
                          "CoA.LearnOwnedCompanions", true);
+    SetConfigValue<std::string>(AscensionCompatConfig::STARTER_VANITY_ITEMS,
+                                "CoA.StarterVanityItems", "");
     SetConfigValue<bool>(AscensionCompatConfig::MAX_RIDING_FROM_START,
                          "CoA.MaxRidingFromStart", true);
     SetConfigValue<bool>(AscensionCompatConfig::LEVEL_SCALING,
@@ -4031,6 +4036,31 @@ private:
       do {
         state.OwnedVanityItems.insert(result->Fetch()[0].Get<uint32>());
       } while (result->NextRow());
+    }
+
+    GrantStarterVanityItems(state);
+  }
+
+  /// Every account owns CoA.StarterVanityItems from its first login. The grant is
+  /// written as an ordinary acquisition, so LearnOwnedCompanions teaches the spell exactly as it
+  /// does for a purchase, and it is read back here on every load, which keeps a later addition
+  /// to the list reaching existing accounts too.
+  void GrantStarterVanityItems(PlayerCollectionState &state) {
+    std::string const configured = ascensionCompatConfig.GetConfigValue<std::string>(
+        AscensionCompatConfig::STARTER_VANITY_ITEMS);
+    for (std::string_view token : Acore::Tokenize(configured, ' ', false)) {
+      Optional<uint32> const itemId = Acore::StringTo<uint32>(token);
+      if (!itemId || !_vanityItems.contains(*itemId)) {
+        LOG_ERROR("module.ascension_compat",
+                  "CoA.StarterVanityItems entry '{}' is not a vanity item", token);
+        continue;
+      }
+      if (!state.OwnedVanityItems.insert(*itemId).second)
+        continue;
+      CharacterDatabase.Execute(
+          "INSERT IGNORE INTO `account_vanity_collection` (`account_id`, "
+          "`item_id`) VALUES ({}, {})",
+          state.AccountId, *itemId);
     }
   }
 

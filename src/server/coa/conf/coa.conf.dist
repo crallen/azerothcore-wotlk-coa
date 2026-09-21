@@ -56,6 +56,11 @@ CoA.AllowLearnedSpellDelivery = 1
 # Ownership remains unchanged. Entries without a local spell are not invented.
 CoA.LearnOwnedCompanions = 1
 
+# Vanity items every account owns from its first login, space separated item ids.
+# With LearnOwnedCompanions on, their spells are taught like any owned companion.
+# Default: Lootbot 3000 and the Book of Artisans.
+CoA.StarterVanityItems = "57000 134987"
+
 # Solo-server convenience: all riding ranks (300/300) and Cold Weather Flying
 # from the first login, including level-one characters. No profession grants.
 CoA.MaxRidingFromStart = 1
