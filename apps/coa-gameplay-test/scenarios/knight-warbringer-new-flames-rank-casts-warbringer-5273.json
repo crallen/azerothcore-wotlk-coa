@@ -12,6 +12,7 @@
   "location": { "map": 0, "x": -8917.41, "y": -115.853, "z": 82.3711, "o": 0 },
   "steps": [
     { "action": "wait", "ms": 3000 },
+    { "action": "learn", "label": "Flames of Xoroth's root rank, which every War Knight knows", "actor": "k", "spell": 801059 },
     { "action": "learn", "actor": "k", "spell": 802414 },
     { "action": "specialization", "actor": "k", "id": 18 },
     { "action": "assert", "label": "SETUP: Warbringer is active", "actor": "k", "metric": "aura", "spell": 570727, "equals": 1 },
