@@ -661,6 +661,28 @@ public:
     };
     reconcile(AscensionCompatData::LegacyGeneratedClassSpells);
     reconcile(AscensionCompatData::ClassSpells);
+    // A character can also come down: the playerbots level brackets send a bot to a lower
+    // level through a full randomize, and the bots module leaves a CoA spellbook to this
+    // pass. Rank upgrades and talent picks earned above the live level go the same way as
+    // the class grants, or a level-one bot keeps casting the kit it had at level twenty-five.
+    for (AscensionProgression::Rank const& rank : AscensionProgression::Ranks)
+      if (rank.ClassId == player->getClass() && rank.RequiredLevel > player->GetLevel() &&
+          player->HasSpell(rank.SpellId) && !currentGrantAllows(rank.SpellId))
+      {
+        player->removeSpell(rank.SpellId, SPEC_MASK_ALL, false);
+        ++removed;
+      }
+    for (auto const& entry : AscensionCompatData::CoATalentEntries)
+    {
+      if (entry.ClassId != player->getClass() || entry.RequiredLevel <= player->GetLevel())
+        continue;
+      for (uint32 spellId : entry.SpellIds)
+        if (spellId && player->HasSpell(spellId) && !currentGrantAllows(spellId))
+        {
+          player->removeSpell(spellId, SPEC_MASK_ALL, false);
+          ++removed;
+        }
+    }
     if (removed)
       LOG_INFO("coa", "Reconciled {} proven class grants for {} against live level {}",
           removed, player->GetName(), uint32(player->GetLevel()));
