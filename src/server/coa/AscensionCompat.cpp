@@ -659,19 +659,45 @@ public:
           ++removed;
         }
     };
-    reconcile(AscensionCompatData::LegacyGeneratedClassSpells);
-    reconcile(AscensionCompatData::ClassSpells);
     // A character can also come down: the playerbots level brackets send a bot to a lower
     // level through a full randomize, and the bots module leaves a CoA spellbook to this
-    // pass. Rank upgrades and talent picks earned above the live level go the same way as
-    // the class grants, or a level-one bot keeps casting the kit it had at level twenty-five.
+    // pass. Paid talent picks are budget-gated, not level-gated: every entry says level 0
+    // and costs one point, and the essence table says how many points a level has. The
+    // purchase path holds to that; a level that went down does not. Over budget, refund
+    // every paid pick: a level that grants no points holds none, and a bot's build re-picks
+    // as it levels. Refund first, since a held pick also vouches for its ability's ranks.
+    {
+      std::vector<AscensionCoATalentState::KnownEntry> const known = KnownTalentEntries(player);
+      AscensionCoATalentState::SpentPoints const spent = AscensionCoATalentState::Spent(known);
+      uint32 ae = 0, te = 0;
+      AscensionCompatData::GetCoATalentBudget(player->getClass(), player->GetLevel(), ae, te);
+      if (spent.AE > ae || spent.TE > te)
+        for (AscensionCoATalentState::KnownEntry const& knownEntry : known)
+        {
+          AscensionCompatData::CoATalentEntry const* entry = FindTalentEntry(knownEntry.EntryId);
+          if (!entry || (!entry->AECost && !entry->TECost))
+            continue;
+          for (uint32 spellId : entry->SpellIds)
+            if (spellId && player->HasSpell(spellId))
+            {
+              player->removeSpell(spellId, SPEC_MASK_ALL, false);
+              ++removed;
+            }
+        }
+    }
+    reconcile(AscensionCompatData::LegacyGeneratedClassSpells);
+    reconcile(AscensionCompatData::ClassSpells);
+    // Rank upgrades earned above the live level, or whose root ability is gone, go the same
+    // way as the class grants; the learn pass below grants a rank only on both counts.
     for (AscensionProgression::Rank const& rank : AscensionProgression::Ranks)
-      if (rank.ClassId == player->getClass() && rank.RequiredLevel > player->GetLevel() &&
+      if (rank.ClassId == player->getClass() &&
+          (rank.RequiredLevel > player->GetLevel() || !player->HasSpell(rank.FirstSpellId)) &&
           player->HasSpell(rank.SpellId) && !currentGrantAllows(rank.SpellId))
       {
         player->removeSpell(rank.SpellId, SPEC_MASK_ALL, false);
         ++removed;
       }
+    // Automatic talents carry level gates of their own.
     for (auto const& entry : AscensionCompatData::CoATalentEntries)
     {
       if (entry.ClassId != player->getClass() || entry.RequiredLevel <= player->GetLevel())
