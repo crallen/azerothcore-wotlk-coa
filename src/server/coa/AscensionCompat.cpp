@@ -7068,6 +7068,12 @@ public:
 };
 
 void AddAscensionCompatScripts() {
+  // coa-stock self-reports (check/self-reports in the coa-stock repository):
+  // one line per coa-stock change in this file, so a rebase that drops the
+  // file's changes, or moves them elsewhere, shows at startup.
+  LOG_INFO("coa", "CoAStock starter-vanity: active");
+  LOG_INFO("coa", "CoAStock talent-reconcile: active");
+  LOG_INFO("coa", "CoAStock talent-refund: active");
   new npc_ascension_training_book();
   RegisterSpellScript(spell_ascension_personal_bank);
   RegisterSpellScript(spell_ascension_experience_potion);
