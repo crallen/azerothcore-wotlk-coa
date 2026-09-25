@@ -8235,6 +8235,12 @@ void AppendConfiguredClientConfigs(AscensionClientConfig& config) {
 }
 
 void AddAscensionCompatScripts() {
+  // coa-stock self-reports (check/self-reports in the coa-stock repository):
+  // one line per coa-stock change in this file, so a rebase that drops the
+  // file's changes, or moves them elsewhere, shows at startup.
+  LOG_INFO("coa", "CoAStock starter-vanity: active");
+  LOG_INFO("coa", "CoAStock talent-reconcile: active");
+  LOG_INFO("coa", "CoAStock talent-refund: active");
   RegisterAscensionClientConfig([](AscensionClientConfig& config) {
     config.Booleans.emplace_back("CONFIG_CHARACTER_ADVANCEMENT_BUILD_INSPECT_ENABLED", true);
   });
