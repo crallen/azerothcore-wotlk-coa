@@ -50,7 +50,8 @@ bool IsVenomActivation(SpellInfo const* spellInfo)
     VenomDefinition const* venom = spellInfo ? FindVenom(spellInfo->Id) : nullptr;
     if (!venom || spellInfo->SpellFamilyName != uint32(CLASS_PROPHET) + 6 ||
         spellInfo->SpellFamilyFlags != flag96(0, venom->FamilyMask1, 268435456) ||
-        spellInfo->IsPassive() || !spellInfo->IsDeathPersistent() || spellInfo->GetDuration() != 7200000 ||
+        spellInfo->IsPassive() || !spellInfo->IsDeathPersistent() ||
+        (spellInfo->GetDuration() != 7200000 && spellInfo->GetDuration() != -1) ||
         spellInfo->Stances || spellInfo->StancesNot || spellInfo->StackAmount != venom->StackAmount ||
         spellInfo->ProcChance != venom->ProcChance || spellInfo->ProcCharges)
         return false;
