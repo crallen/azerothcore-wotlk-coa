@@ -32,7 +32,7 @@ bool IsActivation(SpellInfo const* info)
     Activation const* entry = info ? FindActivation(info->Id) : nullptr;
     if (!entry || info->SpellFamilyName != uint32(CLASS_PROPHET) + 6 ||
         info->SpellFamilyFlags != flag96(0, entry->FamilyMask1, 268435456) ||
-        info->GetDuration() != 7200000 || info->ProcFlags || info->ProcCharges ||
+        (info->GetDuration() != 7200000 && info->GetDuration() != -1) || info->ProcFlags || info->ProcCharges ||
         info->ProcChance != entry->Chance || info->StackAmount != entry->Stacks ||
         info->Effects[EFFECT_2].Effect)
         return false;

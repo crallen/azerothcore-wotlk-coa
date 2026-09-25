@@ -17,7 +17,9 @@
 
 namespace
 {
-constexpr uint32 AUGMENTATION_DURATION_MS = 60 * MINUTE * IN_MILLISECONDS;
+// coa-stock: 0 never expires (Player::ApplyEnchantment starts a timer only for
+// a positive duration), so an augmentation lasts until another replaces it.
+constexpr uint32 AUGMENTATION_DURATION_MS = 0;
 constexpr uint32 SPELL_TRACER_MARK = 653247;
 constexpr uint32 SPELL_TRACER_REVEAL = 653252;
 constexpr uint32 SPELL_STIM_PASSIVE = 653240;

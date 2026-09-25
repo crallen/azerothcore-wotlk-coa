@@ -265,6 +265,7 @@ void AddSC_AscensionRunemasterRiftClones();
 void AddSC_AscensionWelcomeWarchest();
 void AddSC_AscensionClassBundleStore();
 void AddSC_AscensionLfgObjective();
+void AddSC_CoAStockPermanentBuffs();
 
 void AddCoAScripts()
 {
@@ -529,4 +530,6 @@ void AddCoAScripts()
     AddSC_AscensionWelcomeWarchest();
     AddSC_AscensionClassBundleStore();
     AddSC_AscensionLfgObjective();
+    // Last, so its spell changes land after CoA's own.
+    AddSC_CoAStockPermanentBuffs();
 }
