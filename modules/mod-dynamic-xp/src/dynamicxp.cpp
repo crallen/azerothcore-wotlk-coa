@@ -5,7 +5,7 @@ Module Created by Micrah/Milestorme
 Original Script from AshmaneCore https://github.com/conan513 Single Player Project
 
 Local additions:
-  * ".xp" lets a player pick their own rate (1, 3, 5, 7 or the per-band curve) or go
+  * ".xp" lets a player pick their own rate (1, 2, 3, 5, 7 or the per-band curve) or go
     back to the realm's rate. A game master sets the realm value with ".xp realm ...",
     which stays the default for every character without a personal choice.
   * an optional reminder about ".xp", told to a player when they log in and broadcast to
@@ -28,7 +28,7 @@ using namespace Acore::ChatCommands;
 
 namespace
 {
-    /// Keep the per-band curve the module shipped with. A flat preset (1, 3, 5, 7)
+    /// Keep the per-band curve the module shipped with. A flat preset (1, 2, 3, 5, 7)
     /// replaces it; 1 therefore leaves experience exactly as the realm granted it.
     constexpr uint32 PRESET_BAND_CURVE = 0;
     constexpr char PRESET_CONFIG_KEY[] = "Dynamic.XP.Preset";
@@ -49,9 +49,9 @@ namespace
     constexpr char REMINDER_MESSAGE_KEY[] = "Dynamic.XP.Reminder.Message";
 
     constexpr char DEFAULT_REMINDER[] =
-        "|cff4CFF00XP rate|r: pick your own with |cff4CFF00.xp 1|r, |cff4CFF00.xp 3|r, "
-        "|cff4CFF00.xp 5|r or |cff4CFF00.xp 7|r, or |cff4CFF00.xp default|r to follow "
-        "the realm. |cff4CFF00.xp|r shows what you are on.";
+        "|cff4CFF00XP rate|r: pick your own with |cff4CFF00.xp 1|r, |cff4CFF00.xp 2|r, "
+        "|cff4CFF00.xp 3|r, |cff4CFF00.xp 5|r or |cff4CFF00.xp 7|r, or |cff4CFF00.xp default|r "
+        "to follow the realm. |cff4CFF00.xp|r shows what you are on.";
 
     /// -1 until the value has been read from the config. XP is granted on several map
     /// threads at once, so the realm value is cached in an atomic rather than re-read.
@@ -64,7 +64,7 @@ namespace
 
     bool IsKnownPreset(uint32 preset)
     {
-        return preset == PRESET_BAND_CURVE || preset == 1 || preset == 3 ||
+        return preset == PRESET_BAND_CURVE || preset == 1 || preset == 2 || preset == 3 ||
                preset == 5 || preset == 7;
     }
 
@@ -315,6 +315,7 @@ public:
         static ChatCommandTable const realmTable =
         {
             { "1",       HandleRealmOne,     SEC_GAMEMASTER, Console::Yes },
+            { "2",       HandleRealmTwo,     SEC_GAMEMASTER, Console::Yes },
             { "3",       HandleRealmThree,   SEC_GAMEMASTER, Console::Yes },
             { "5",       HandleRealmFive,    SEC_GAMEMASTER, Console::Yes },
             { "7",       HandleRealmSeven,   SEC_GAMEMASTER, Console::Yes },
@@ -325,6 +326,7 @@ public:
         static ChatCommandTable const xpCommandTable =
         {
             { "1",       HandleMineOne,      SEC_PLAYER, Console::No },
+            { "2",       HandleMineTwo,      SEC_PLAYER, Console::No },
             { "3",       HandleMineThree,    SEC_PLAYER, Console::No },
             { "5",       HandleMineFive,     SEC_PLAYER, Console::No },
             { "7",       HandleMineSeven,    SEC_PLAYER, Console::No },
@@ -364,6 +366,7 @@ private:
     }
 
     static bool HandleMineOne(ChatHandler* handler)     { return SetMine(handler, 1); }
+    static bool HandleMineTwo(ChatHandler* handler)     { return SetMine(handler, 2); }
     static bool HandleMineThree(ChatHandler* handler)   { return SetMine(handler, 3); }
     static bool HandleMineFive(ChatHandler* handler)    { return SetMine(handler, 5); }
     static bool HandleMineSeven(ChatHandler* handler)   { return SetMine(handler, 7); }
@@ -398,7 +401,7 @@ private:
                                      "follows it again.", DescribePreset(RealmPreset()));
         if (PlayersMayChoose())
             handler->SendSysMessage(
-                "Pick yours with |cff4CFF00.xp 1|r, .xp 3, .xp 5, .xp 7 or "
+                "Pick yours with |cff4CFF00.xp 1|r, .xp 2, .xp 3, .xp 5, .xp 7 or "
                 "|cff4CFF00.xp dynamic|r (the per-band curve).");
         return true;
     }
@@ -433,6 +436,7 @@ private:
     }
 
     static bool HandleRealmOne(ChatHandler* handler)    { return SetRealm(handler, 1); }
+    static bool HandleRealmTwo(ChatHandler* handler)    { return SetRealm(handler, 2); }
     static bool HandleRealmThree(ChatHandler* handler)  { return SetRealm(handler, 3); }
     static bool HandleRealmFive(ChatHandler* handler)   { return SetRealm(handler, 5); }
     static bool HandleRealmSeven(ChatHandler* handler)  { return SetRealm(handler, 7); }
@@ -447,8 +451,8 @@ private:
                                  "character without its own choice).",
                                  DescribePreset(RealmPreset()));
         handler->SendSysMessage(
-            "Change it with |cff4CFF00.xp realm 1|r, .xp realm 3, .xp realm 5, .xp realm 7, "
-            ".xp realm dynamic|r.");
+            "Change it with |cff4CFF00.xp realm 1|r, .xp realm 2, .xp realm 3, .xp realm 5, "
+            ".xp realm 7, .xp realm dynamic|r.");
         return true;
     }
 };
