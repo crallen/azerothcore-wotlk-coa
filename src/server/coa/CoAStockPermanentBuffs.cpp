@@ -577,7 +577,6 @@ public:
                 madePermanent, PermanentAuras.size(), lost.size(), expected, names);
         }
     }
-    }
 };
 }
 
