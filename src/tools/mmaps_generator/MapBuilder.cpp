@@ -588,7 +588,7 @@ namespace MMAP
                                       dtNavMesh* navMesh)
     {
         // console output
-        char tileString[20];
+        char tileString[24];
         sprintf(tileString, "[Map %03i] [%02i,%02i]: ", mapID, tileX, tileY);
         printf("%s Building movemap tiles...\n", tileString);
 
