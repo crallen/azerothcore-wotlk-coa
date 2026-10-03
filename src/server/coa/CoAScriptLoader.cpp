@@ -305,6 +305,7 @@ void AddSC_AscensionClassBundleStore();
 void AddSC_AscensionLfgObjective();
 void AddSC_AscensionBushcraft();
 void AddSC_CoAStockPermanentBuffs();
+void AddSC_CoAStockPoisonTheWorld();
 
 void AddCoAScripts()
 {
@@ -608,6 +609,7 @@ void AddCoAScripts()
     AddSC_AscensionClassBundleStore();
     AddSC_AscensionLfgObjective();
     AddSC_AscensionBushcraft();
+    AddSC_CoAStockPoisonTheWorld();
     // Last, so its spell changes land after CoA's own.
     AddSC_CoAStockPermanentBuffs();
 }
