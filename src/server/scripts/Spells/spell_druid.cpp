@@ -221,7 +221,9 @@ class spell_dru_feral_swiftness : public AuraScript
             return std::any_of(ranks.begin(), ranks.end(),
                 [player](uint32 spellId) { return player->HasTalent(spellId, player->GetActiveSpec()); });
         };
-        if (uint8 rank = hasTalent(SPELL_DRUID_FERAL_SWIFTNESS_R1) ? 1 : (hasTalent(SPELL_DRUID_FERAL_SWIFTNESS_R2) ? 2 : 0))
+        // wow-realms: a free-pick talent is a learned passive, not a talent entry
+        if (uint8 rank = (hasTalent(SPELL_DRUID_FERAL_SWIFTNESS_R1) || player->HasAura(SPELL_DRUID_FERAL_SWIFTNESS_R1)) ? 1
+            : ((hasTalent(SPELL_DRUID_FERAL_SWIFTNESS_R2) || player->HasAura(SPELL_DRUID_FERAL_SWIFTNESS_R2)) ? 2 : 0))
                 player->CastSpell(player, rank == 1 ? SPELL_DRUID_FERAL_SWIFTNESS_PASSIVE_1 : SPELL_DRUID_FERAL_SWIFTNESS_PASSIVE_2, true, nullptr, aurEff, GetCasterGUID());
     }
 
