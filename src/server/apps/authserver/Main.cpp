@@ -102,6 +102,8 @@ int main(int argc, char** argv)
             LOG_INFO("server.authserver", "> Using Boost version:           {}.{}.{}", BOOST_VERSION / 100000, BOOST_VERSION / 100 % 1000, BOOST_VERSION % 100);
         });
 
+    LOG_INFO("server.authserver", "Realms realm-cards: active");
+
     OpenSSLCrypto::threadsSetup();
 
     std::shared_ptr<void> opensslHandle(nullptr, [](void*) { OpenSSLCrypto::threadsCleanup(); });

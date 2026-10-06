@@ -15,8 +15,42 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "Config.h"
 #include "RealmCard.h"
 #include "gtest/gtest.h"
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+
+namespace
+{
+class RealmCardConfigTest : public testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        configPath = (std::filesystem::temp_directory_path() / "RealmCardConfigTest.conf").string();
+        std::ofstream(configPath) << "[authserver]\n"
+                                     "RealmCards.Expansion = 2\n"
+                                     "RealmCards.GameMode = 11\n"
+                                     "RealmCards.Image = \"Default\"\n"
+                                     "RealmCards.2.Expansion = 0\n"
+                                     "RealmCards.2.GameMode = 12\n"
+                                     "RealmCards.2.DescriptionSpell = 1397607\n";
+        sConfigMgr->Configure(configPath, {});
+        sConfigMgr->LoadAppConfigs();
+    }
+
+    void TearDown() override
+    {
+        std::remove(configPath.c_str());
+    }
+
+    std::string configPath;
+    RealmCardStyle const globalStyle{ 2, 11, "Default", 0 };
+};
+}
 
 TEST(RealmCardTest, FillsTheFirstPageThenTheNextOnes)
 {
@@ -44,4 +78,30 @@ TEST(RealmCardTest, EndsWithTheDescriptionSpellAndUsesTheRealmImage)
     RealmCardStyle const style{ 0, 12, "Bronzebeard", 1397607 };
     EXPECT_EQ(BuildRealmCardName("Bronzebeard - Warcraft Reborn", style, GetRealmCardSlot(2)),
         "Bronzebeard - Warcraft Reborn!0!12!Bronzebeard!1!1!3!1397607");
+}
+
+TEST_F(RealmCardConfigTest, GivesARealmWithoutItsOwnKeysTheGlobalCard)
+{
+    RealmCardStyle const style = GetRealmCardStyle(1, globalStyle);
+    EXPECT_EQ(style.Expansion, 2u);
+    EXPECT_EQ(style.GameMode, 11u);
+    EXPECT_EQ(style.Image, "Default");
+    EXPECT_EQ(style.DescriptionSpell, 0u);
+}
+
+TEST_F(RealmCardConfigTest, TakesEachKeyARealmSetsAndTheGlobalForTheRest)
+{
+    RealmCardStyle const style = GetRealmCardStyle(2, globalStyle);
+    EXPECT_EQ(style.Expansion, 0u);
+    EXPECT_EQ(style.GameMode, 12u);
+    EXPECT_EQ(style.Image, "Default");
+    EXPECT_EQ(style.DescriptionSpell, 1397607u);
+}
+
+TEST_F(RealmCardConfigTest, ReadsARealmKeyFromItsDoubleUnderscoreEnvironmentVariable)
+{
+    setenv("AC_REALM_CARDS_9__IMAGE", "Vanilla", 1);
+    RealmCardStyle const style = GetRealmCardStyle(9, globalStyle);
+    EXPECT_EQ(style.Image, "Vanilla");
+    EXPECT_EQ(style.Expansion, 2u);
 }
