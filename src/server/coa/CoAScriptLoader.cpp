@@ -18,6 +18,7 @@
 #include "AscensionVenomancerVenomPayloads.h"
 #include "AscensionTinkerCombatSymbiosis.h"
 
+void AddRealmsScripts();
 void AddAscensionCompatScripts();
 void AddAscensionTravelPermitScripts();
 void AddSC_AscensionRulesets();
@@ -366,6 +367,7 @@ void AddSC_AscensionBushcraft();
 
 void AddCoAScripts()
 {
+    AddRealmsScripts();
     AddAscensionStockCoefficientScripts();
     AddAscensionScalingBaseScripts();
     AddAscensionManastormScripts();
