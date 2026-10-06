@@ -261,6 +261,24 @@ void Commit(Player* player, Build const& base, ApplyCheck const& check, UnitChec
 }
 }
 
+void Initialize()
+{
+    static bool initialized = false;
+    if (initialized)
+        return;
+    initialized = true;
+    CurrentRealm = ReadRealm();
+    Classless = sConfigMgr->GetOption<std::string>("CoA.ClassModel", "coa") == "hero";
+    Reborn = CurrentRealm.WarcraftReborn;
+    if ((Classless || Reborn) && !LoadCatalog(Loaded))
+        LOG_ERROR("coa", "Free-pick Character Advancement is unavailable: its client DBCs did not load");
+}
+
+Catalog const& LoadedCatalog()
+{
+    return Loaded;
+}
+
 bool RealmIsClassless()
 {
     return Classless;
@@ -473,15 +491,11 @@ public:
 
     void OnStartup() override
     {
-        CurrentRealm = ReadRealm();
-        Classless = sConfigMgr->GetOption<std::string>("CoA.ClassModel", "coa") == "hero";
-        Reborn = CurrentRealm.WarcraftReborn;
+        Initialize();
         MysticAltars = (Classless || Reborn) &&
             !AscensionWildcard::PlaysWildcard(sConfigMgr->GetOption<std::string>("CoAChallenges.GameModes.Realm", ""));
         if (CurrentRealm.ConquestOfAzeroth)
             sGameEventMgr->StartInternalEvent(COA_CLASS_TRAINERS_EVENT);
-        if ((Classless || Reborn) && !LoadCatalog(Loaded))
-            LOG_ERROR("coa", "Free-pick Character Advancement is unavailable: its client DBCs did not load");
     }
 };
 }

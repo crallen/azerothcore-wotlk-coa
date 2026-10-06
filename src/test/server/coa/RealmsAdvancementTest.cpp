@@ -1,6 +1,7 @@
 /* Copyright (C) 2016+ AzerothCore, GNU AGPL v3. */
 
 #include "AscensionFreepickRules.h"
+#include "RealmsAdvancement.h"
 #include "gtest/gtest.h"
 
 using namespace AscensionFreepick;
@@ -126,5 +127,11 @@ TEST_F(RealmsAdvancementTest, PurgeIsFreeUpToLevelTenAndEmptyWithNothingToRemove
     EXPECT_EQ(free.Money + free.Marks, 0u);
     EXPECT_EQ(CheckPurge(Build(catalog, reborn, 20, { { RETAINED_ROW, 1 } }, WARRIOR), nullptr, {}).Result,
         UPDATE_NO_DIFF);
+}
+
+TEST_F(RealmsAdvancementTest, SelfReportCountsStockRowsAndBudgetedStockClasses)
+{
+    EXPECT_EQ(Realms::StockCatalogRows(catalog), 3u);
+    EXPECT_EQ(Realms::BudgetedStockClasses(catalog), 1u);
 }
 }
