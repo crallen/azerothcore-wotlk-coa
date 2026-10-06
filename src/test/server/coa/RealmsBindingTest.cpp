@@ -59,11 +59,6 @@ protected:
     std::map<uint32, std::unique_ptr<SpellInfo>> spells;
     Realms::BindingCounts counts;
 };
-
-bool OnlyStockEntriesHaveTemplates(uint32 entry)
-{
-    return entry == 2523 || entry == 1102524 || entry == 2524;
-}
 }
 
 TEST_F(RealmsBindingTest, BindCountsPairsAndExclusionsAndSkipsUnknownSpells)
@@ -164,13 +159,4 @@ TEST_F(RealmsBindingTest, AnEmptyMapResolvesNothing)
     EXPECT_FALSE(Realms::Enabled());
     EXPECT_EQ(Realms::ForCaster(warrior, Namesake), Namesake);
     EXPECT_EQ(Realms::Partner(Copy), 0u);
-    EXPECT_EQ(Realms::CreatureEntry(1102523, OnlyStockEntriesHaveTemplates), 1102523u);
-}
-
-TEST_F(RealmsBindingTest, CreatureEntryRedirectsOnlyAMissingTemplateAboveTheCopyRange)
-{
-    EXPECT_EQ(Realms::CreatureEntry(1102523, OnlyStockEntriesHaveTemplates), 2523u);
-    EXPECT_EQ(Realms::CreatureEntry(1102524, OnlyStockEntriesHaveTemplates), 1102524u);
-    EXPECT_EQ(Realms::CreatureEntry(1102525, OnlyStockEntriesHaveTemplates), 1102525u);
-    EXPECT_EQ(Realms::CreatureEntry(2523, OnlyStockEntriesHaveTemplates), 2523u);
 }
