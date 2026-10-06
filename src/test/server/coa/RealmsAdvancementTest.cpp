@@ -16,6 +16,9 @@ constexpr std::uint32_t FURY = 5;
 constexpr std::uint32_t HERO_ROW = 1000;
 constexpr std::uint32_t COA_ROW = 2000;
 constexpr std::uint32_t CRUELTY = 12380;
+constexpr std::uint32_t BOOMING_VOICE = 12378;
+constexpr std::uint32_t RETAINED_ROW = 3000;
+constexpr std::uint32_t LEVEL_20_UNLEARN = 71 * 20;
 
 Row TalentRow(std::uint32_t entryId, std::uint32_t classType, std::uint32_t tab, std::uint32_t ranks,
     std::uint32_t level)
@@ -44,6 +47,10 @@ protected:
         Add(TalentRow(HERO_ROW, HERO_TREE, 1, 1, 10));
         Add(TalentRow(COA_ROW, COA_TREE, 1, 1, 10));
         Add(TalentRow(CRUELTY, REBORN_WARRIOR, FURY, 5, 10));
+        Add(TalentRow(BOOMING_VOICE, REBORN_WARRIOR, FURY, 2, 10));
+        Row retained = TalentRow(RETAINED_ROW, REBORN_WARRIOR, FURY, 1, 10);
+        retained.Flags = ROW_RETAINED;
+        Add(retained);
         for (std::uint32_t level = 1; level <= 80; ++level)
         {
             catalog.Budget[HERO_CLASS].push_back({ level, 20 + level, level > 9 ? level - 9 : 0 });
@@ -85,5 +92,39 @@ TEST_F(RealmsAdvancementTest, WarcraftRebornHidesHeroAndCoARows)
     EXPECT_FALSE(Visible(catalog, reborn, catalog.Rows.at(HERO_ROW)));
     EXPECT_FALSE(Visible(catalog, reborn, catalog.Rows.at(COA_ROW)));
     EXPECT_TRUE(Visible(catalog, hero, catalog.Rows.at(HERO_ROW)));
+}
+
+TEST_F(RealmsAdvancementTest, PurgePricesEachRemovedEntryAtTheUnlearnCost)
+{
+    Build const build(catalog, reborn, 20, { { CRUELTY, 3 }, { BOOMING_VOICE, 2 }, { RETAINED_ROW, 1 } }, WARRIOR);
+    ApplyCheck const paid = CheckPurge(build, nullptr, { 2 * LEVEL_20_UNLEARN, 0 });
+    EXPECT_EQ(paid.Result, UPDATE_OK);
+    EXPECT_EQ(paid.Money, 2 * LEVEL_20_UNLEARN);
+    ASSERT_EQ(paid.Entries.size(), 1u);
+    EXPECT_EQ(paid.Entries[0].EntryId, RETAINED_ROW);
+}
+
+TEST_F(RealmsAdvancementTest, PurgeSpendsMarksBeforeMoney)
+{
+    Build const build(catalog, reborn, 20, { { CRUELTY, 3 }, { BOOMING_VOICE, 2 } }, WARRIOR);
+    ApplyCheck const paid = CheckPurge(build, nullptr, { 0, 500 });
+    EXPECT_EQ(paid.Result, UPDATE_OK);
+    EXPECT_EQ(paid.Marks, 500u);
+    EXPECT_EQ(paid.Money, 0u);
+}
+
+TEST_F(RealmsAdvancementTest, PurgeRefusesAPurseThatCannotPay)
+{
+    Build const build(catalog, reborn, 20, { { CRUELTY, 3 }, { BOOMING_VOICE, 2 } }, WARRIOR);
+    EXPECT_EQ(CheckPurge(build, nullptr, { 2 * LEVEL_20_UNLEARN - 1, 0 }).Result, UPDATE_BAD_UPDATE_COSTS);
+}
+
+TEST_F(RealmsAdvancementTest, PurgeIsFreeUpToLevelTenAndEmptyWithNothingToRemove)
+{
+    ApplyCheck const free = CheckPurge(Build(catalog, reborn, 10, { { CRUELTY, 1 } }, WARRIOR), nullptr, {});
+    EXPECT_EQ(free.Result, UPDATE_OK);
+    EXPECT_EQ(free.Money + free.Marks, 0u);
+    EXPECT_EQ(CheckPurge(Build(catalog, reborn, 20, { { RETAINED_ROW, 1 } }, WARRIOR), nullptr, {}).Result,
+        UPDATE_NO_DIFF);
 }
 }
