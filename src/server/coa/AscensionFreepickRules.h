@@ -252,6 +252,7 @@ struct ApplyCheck
 };
 
 ApplyCheck CheckApply(Build const& base, std::vector<Entry> const& upload, UnitCheck const& unit, Purse const& purse);
+ApplyCheck CheckPurge(Build const& base, UnitCheck const& unit, Purse const& purse);
 
 struct GuideSpell
 {
