@@ -26,6 +26,7 @@
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "RaceMgr.h"
+#include "RealmsBinding.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "Spell.h"
@@ -155,10 +156,10 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellInfo const* spellproto,
         case SPELLFAMILY_MAGE:
             {
                 // Frostbite
-                if (spellproto->Id == 12494)
+                if (spellproto->StockId() == 12494) // wow-realms: copy binding
                     return DIMINISHING_ROOT;
                 // Shattered Barrier
-                else if (spellproto->Id == 55080)
+                else if (spellproto->StockId() == 55080) // wow-realms: copy binding
                     return DIMINISHING_ROOT;
                 // Deep Freeze
                 else if (spellproto->SpellIconID == 2939 && spellproto->SpellVisual[0] == 9963)
@@ -177,7 +178,7 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellInfo const* spellproto,
                 if (spellproto->SpellFamilyFlags[0] & 0x2)
                     return DIMINISHING_LIMITONLY;
                 // Improved Hamstring
-                else if (spellproto->Id == 23694)
+                else if (spellproto->StockId() == 23694) // wow-realms: copy binding
                     return DIMINISHING_ROOT;
                 // Charge Stun (own diminishing)
                 else if (spellproto->SpellFamilyFlags[0] & 0x01000000)
@@ -210,7 +211,7 @@ DiminishingGroup GetDiminishingReturnsGroupForSpell(SpellInfo const* spellproto,
                 else if (spellproto->SpellFamilyFlags[0] & 0x400)
                     return DIMINISHING_LIMITONLY;
                 // Feral Charge Root Effect
-                else if (spellproto->Id == 45334)
+                else if (spellproto->StockId() == 45334) // wow-realms: copy binding
                     return DIMINISHING_NONE;
                 break;
             }
@@ -1622,7 +1623,7 @@ uint32 SpellMgr::GetSpellTwinSource(uint32 spellId) const
         else
             break;
     }
-    return source;
+    return Realms::StockId(source); // wow-realms: copy binding
 }
 
 namespace
@@ -3919,7 +3920,8 @@ void SpellMgr::LoadSpellInfoCustomAttributes()
                             if (spellInfo->SpellFamilyName == SPELLFAMILY_MAGE && (spellInfo->SpellFamilyFlags[0] & 0x20)) // Frostbolt
                                 continue;
 
-                            if (spellInfo->Id == 55095) // Frost Fever
+                            // wow-realms: copy binding
+                            if (spellInfo->StockId() == 55095) // Frost Fever
                                 continue;
 
                             if (spellInfo->SpellFamilyName == SPELLFAMILY_WARLOCK &&
@@ -3980,7 +3982,7 @@ void SpellMgr::LoadSpellInfoCustomAttributes()
                 break;
         }
 
-        switch (spellInfo->Id)
+        switch (spellInfo->StockId()) // wow-realms: copy binding
         {
             // Xinef: NOT CUSTOM, cant add in DBC CORRECTION because i need to swap effects, too much work to do there
             // Envenom

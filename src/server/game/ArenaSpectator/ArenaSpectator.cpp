@@ -118,7 +118,7 @@ bool ArenaSpectator::HandleSpectatorSpectateCommand(ChatHandler* handler, std::s
         if (Aura* aura = itr->second->GetBase())
             if (!itr->second->IsPositive() && !aura->IsPermanent() && aura->GetDuration() < HOUR * IN_MILLISECONDS)
             {
-                switch (aura->GetSpellInfo()->Id)
+                switch (aura->GetSpellInfo()->StockId()) // wow-realms: copy binding
                 {
                     case lfg::LFG_SPELL_DUNGEON_DESERTER:
                     case lfg::LFG_SPELL_DUNGEON_COOLDOWN:
