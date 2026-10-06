@@ -15,8 +15,41 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "Config.h"
 #include "RealmCard.h"
 #include "gtest/gtest.h"
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+
+namespace
+{
+class RealmCardConfigTest : public testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        configPath = (std::filesystem::temp_directory_path() / "RealmCardConfigTest.conf").string();
+        std::ofstream(configPath) << "[authserver]\n"
+                                     "RealmCards.Expansion = 2\n"
+                                     "RealmCards.GameMode = 11\n"
+                                     "RealmCards.Image = \"Default\"\n"
+                                     "RealmCards.2.Expansion = 0\n"
+                                     "RealmCards.2.GameMode = 12\n";
+        sConfigMgr->Configure(configPath, {});
+        sConfigMgr->LoadAppConfigs();
+    }
+
+    void TearDown() override
+    {
+        std::remove(configPath.c_str());
+    }
+
+    std::string configPath;
+    RealmCardStyle const globalStyle{ 2, 11, "Default" };
+};
+}
 
 TEST(RealmCardTest, FillsTheFirstPageThenTheNextOnes)
 {
@@ -37,4 +70,28 @@ TEST(RealmCardTest, NamesTheRealmThenItsCardFields)
     RealmCardStyle const style{ 2, 11, "Default" };
     EXPECT_EQ(BuildRealmCardName("AzerothCore", style, GetRealmCardSlot(0)), "AzerothCore!2!11!Default!1!1!1!0");
     EXPECT_EQ(BuildRealmCardName("Second", style, GetRealmCardSlot(7)), "Second!2!11!Default!1!2!2!0");
+}
+
+TEST_F(RealmCardConfigTest, GivesARealmWithoutItsOwnKeysTheGlobalCard)
+{
+    RealmCardStyle const style = GetRealmCardStyle(1, globalStyle);
+    EXPECT_EQ(style.Expansion, 2u);
+    EXPECT_EQ(style.GameMode, 11u);
+    EXPECT_EQ(style.Image, "Default");
+}
+
+TEST_F(RealmCardConfigTest, TakesEachKeyARealmSetsAndTheGlobalForTheRest)
+{
+    RealmCardStyle const style = GetRealmCardStyle(2, globalStyle);
+    EXPECT_EQ(style.Expansion, 0u);
+    EXPECT_EQ(style.GameMode, 12u);
+    EXPECT_EQ(style.Image, "Default");
+}
+
+TEST_F(RealmCardConfigTest, ReadsARealmKeyFromItsDoubleUnderscoreEnvironmentVariable)
+{
+    setenv("AC_REALM_CARDS_9__IMAGE", "Vanilla", 1);
+    RealmCardStyle const style = GetRealmCardStyle(9, globalStyle);
+    EXPECT_EQ(style.Image, "Vanilla");
+    EXPECT_EQ(style.Expansion, 2u);
 }

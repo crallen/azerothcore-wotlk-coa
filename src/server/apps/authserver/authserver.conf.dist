@@ -315,6 +315,19 @@ RealmCards.GameMode = 11
 RealmCards.Image = "Default"
 
 #
+#    RealmCards.<id>.Expansion
+#    RealmCards.<id>.GameMode
+#    RealmCards.<id>.Image
+#        Description: Card of the realm whose realmlist.id is <id>, key by key. A key left unset takes the
+#                     global RealmCards.Expansion, RealmCards.GameMode or RealmCards.Image value. Add the
+#                     keys to this file or set them as environment variables, whose names put a double
+#                     underscore after the id: RealmCards.2.Expansion is AC_REALM_CARDS_2__EXPANSION and
+#                     RealmCards.2.GameMode is AC_REALM_CARDS_2__GAME_MODE. A misspelt name is ignored.
+#        Default:     <unset> - (Use the global key)
+#        Example:     RealmCards.2.Expansion = 0
+#                     RealmCards.2.GameMode = 12
+
+#
 ###################################################################################################
 
 ###################################################################################################

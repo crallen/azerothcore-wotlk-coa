@@ -39,6 +39,8 @@ struct RealmCardStyle
 
 RealmCardSlot GetRealmCardSlot(std::size_t order);
 
+RealmCardStyle GetRealmCardStyle(uint32 realmId, RealmCardStyle const& globalStyle);
+
 std::string BuildRealmCardName(std::string const& realmName, RealmCardStyle const& style, RealmCardSlot slot);
 
 #endif
