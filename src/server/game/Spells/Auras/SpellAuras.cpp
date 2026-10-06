@@ -1324,7 +1324,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
         switch (GetSpellInfo()->SpellFamilyName)
         {
             case SPELLFAMILY_GENERIC:
-                switch (GetId())
+                switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
                 {
                     case 32474: // Buffeting Winds of Susurrus
                         if (target->IsPlayer())
@@ -1373,7 +1373,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                         creatureTarget->CallAssistance(caster);
                     }
                 }
-                switch (GetId())
+                switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
                 {
                     case 44544: // Fingers of Frost
                         {
@@ -1501,7 +1501,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                     if (aurEff)
                     {
                         uint32 spellId = 0;
-                        switch (aurEff->GetId())
+                        switch (aurEff->GetSpellInfo()->StockId()) // wow-realms: copy binding
                         {
                             // Ebon Plague
                             case 51161:
@@ -1530,7 +1530,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                     }
                 }
                 // Unholy blight
-                if (GetId() == 50536)
+                if (GetSpellInfo()->StockId() == 50536) // wow-realms: copy binding
                 {
                     if (caster->IsFriendlyTo(target))
                         SetDuration(0);
@@ -1564,7 +1564,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
             case SPELLFAMILY_GENERIC:
                 if (!caster)
                     break;
-                switch (GetId())
+                switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
                 {
                     case 61987: // Avenging Wrath
                         // Remove the immunity shield marker on Avenging Wrath removal if Forbearance is not present
@@ -1592,7 +1592,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                         creatureTarget->SetNoCallAssistance(false);
                     }
                 }
-                switch (GetId())
+                switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
                 {
                     case 66: // Invisibility
                         if (removeMode != AURA_REMOVE_BY_EXPIRE)
@@ -1739,7 +1739,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                         }
                     }
                 }
-                switch (GetId())
+                switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
                 {
                     case 47788: // Guardian Spirit
                     {
@@ -1777,7 +1777,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                 break;
             case SPELLFAMILY_ROGUE:
                 // Remove Vanish on stealth remove
-                if (GetId() == 1784)
+                if (GetSpellInfo()->StockId() == 1784) // wow-realms: copy binding
                 {
                     target->RemoveAurasWithFamily(SPELLFAMILY_ROGUE, 0x800, 0, 0, ObjectGuid::Empty);
                     target->RemoveAurasDueToSpell(18461);
@@ -1816,7 +1816,8 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                 break;
             case SPELLFAMILY_PALADIN:
                 // Remove the immunity shield marker on Forbearance removal if AW marker is not present
-                if (GetId() == 25771 && target->HasAura(61988) && !target->HasAura(61987))
+                // wow-realms: copy binding
+                if (GetSpellInfo()->StockId() == 25771 && target->HasAura(61988) && !target->HasAura(61987))
                     target->RemoveAura(61988);
                 break;
             case SPELLFAMILY_HUNTER:
@@ -1866,7 +1867,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
             }
             break;
         case SPELLFAMILY_HUNTER:
-            switch (GetId())
+            switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
             {
                 case 19574: // Bestial Wrath
                     // The Beast Within cast on owner if talent present
@@ -1895,7 +1896,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
             }
             break;
         case SPELLFAMILY_PALADIN:
-            switch (GetId())
+            switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
             {
                 case 31842: // Divine Illumination
                     // Item - Paladin T10 Holy 2P Bonus
