@@ -384,9 +384,9 @@ namespace Acore
                     return false;
 
             // Sacred Shield
-            if (spellProtoA->Id == 58597)
+            if (spellProtoA->StockId() == 58597) // wow-realms: copy binding
                 return true;
-            if (spellProtoB->Id == 58597)
+            if (spellProtoB->StockId() == 58597) // wow-realms: copy binding
                 return false;
 
             // Fel Blossom
@@ -396,9 +396,9 @@ namespace Acore
                 return false;
 
             // Divine Aegis
-            if (spellProtoA->Id == 47753)
+            if (spellProtoA->StockId() == 47753) // wow-realms: copy binding
                 return true;
-            if (spellProtoB->Id == 47753)
+            if (spellProtoB->StockId() == 47753) // wow-realms: copy binding
                 return false;
 
             // Ice Barrier

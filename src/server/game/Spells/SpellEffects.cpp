@@ -1227,7 +1227,8 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
                             {
                                 if (AuraEffect* aurEff = owner->GetAuraEffect(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_WARLOCK, 214, 0))
                                 {
-                                    int32 bp0 = aurEff->GetId() == 54037 ? 4 : 8;
+                                    // wow-realms: copy binding
+                                    int32 bp0 = aurEff->GetSpellInfo()->StockId() == 54037 ? 4 : 8;
                                     m_caster->CastCustomSpell(m_caster, 54425, &bp0, nullptr, nullptr, true);
                                 }
                             }
@@ -1519,7 +1520,7 @@ void Spell::EffectDummy(SpellEffIndex effIndex)
                 break;
             }
         case SPELLFAMILY_PALADIN:
-            switch (m_spellInfo->Id)
+            switch (m_spellInfo->StockId()) // wow-realms: copy binding
             {
                 case 31789:                                 // Righteous Defense (step 1)
                     {
@@ -1597,7 +1598,7 @@ void Spell::EffectTriggerSpell(SpellEffIndex effIndex)
             && effectHandleMode == SPELL_EFFECT_HANDLE_LAUNCH_TARGET)
     {
         // special cases
-        switch (triggered_spell_id)
+        switch (Realms::StockId(triggered_spell_id)) // wow-realms: copy binding
         {
             // Mirror Image
             case 58832:
@@ -1997,7 +1998,8 @@ void Spell::EffectJumpDest(SpellEffIndex effIndex)
         return;
     }
 
-    if (m_spellInfo->Id == 57604) // death grip
+    // wow-realms: copy binding
+    if (m_spellInfo->StockId() == 57604) // death grip
     {
         speedZ = 3.0f;
         speedXY = 50.0f;
@@ -2458,7 +2460,8 @@ void Spell::EffectHeal(SpellEffIndex effIndex)
             m_damageBeforeTakenMods -= addhealth;
             addhealth = unitTarget->SpellHealingBonusTaken(caster, m_spellInfo, addhealth, HEAL);
         }
-        else if (m_spellInfo->Id != 33778) // not lifebloom
+        // wow-realms: copy binding
+        else if (m_spellInfo->StockId() != 33778) // not lifebloom
         {
             addhealth = caster->SpellHealingBonusDone(unitTarget, m_spellInfo, addhealth, HEAL, effIndex);
             m_damageBeforeTakenMods -= addhealth;
@@ -2815,7 +2818,7 @@ void Spell::EffectEnergize(SpellEffIndex effIndex)
     // Some level depends spells
     int level_multiplier = 0;
     int level_diff = 0;
-    switch (m_spellInfo->Id)
+    switch (m_spellInfo->StockId()) // wow-realms: copy binding
     {
         case 9512:                                          // Restore Energy
             level_diff = m_caster->GetLevel() - 40;
@@ -4013,7 +4016,7 @@ void Spell::EffectEnchantItemTmp(SpellEffIndex effIndex)
         duration = 1800; // 30 mins
     else
     {
-        switch (m_spellInfo->Id)
+        switch (m_spellInfo->StockId()) // wow-realms: copy binding
         {
             case 37360: // Consecrated Weapon
                 duration = 300; // 5 mins
@@ -4411,7 +4414,7 @@ void Spell::EffectWeaponDmg(SpellEffIndex effIndex)
             }
         case SPELLFAMILY_PALADIN:
             {
-                switch (m_spellInfo->Id)
+                switch (m_spellInfo->StockId()) // wow-realms: copy binding
                 {
                     case 20467: // Seal of Command Unleashed
                         spell_bonus += int32(0.08f * m_caster->GetTotalAttackPowerValue(BASE_ATTACK));
@@ -4926,7 +4929,7 @@ void Spell::EffectScriptEffect(SpellEffIndex effIndex)
             }
         case SPELLFAMILY_ROGUE:
             {
-                switch (m_spellInfo->Id)
+                switch (m_spellInfo->StockId()) // wow-realms: copy binding
                 {
                     // Master of Subtlety
                     case 31666:
@@ -6775,7 +6778,7 @@ void Spell::EffectActivateRune(SpellEffIndex effIndex)
     {
         if (player->GetRuneCooldown(j) && player->GetCurrentRune(j) == RuneType(m_spellInfo->Effects[effIndex].MiscValue))
         {
-            if (m_spellInfo->Id == 45529)
+            if (m_spellInfo->StockId() == 45529) // wow-realms: copy binding
                 if (player->GetBaseRune(j) != RuneType(m_spellInfo->Effects[effIndex].MiscValueB))
                     continue;
             player->SetRuneCooldown(j, 0);
@@ -6785,7 +6788,7 @@ void Spell::EffectActivateRune(SpellEffIndex effIndex)
     }
 
     // Blood Tap
-    if (m_spellInfo->Id == 45529 && count > 0)
+    if (m_spellInfo->StockId() == 45529 && count > 0) // wow-realms: copy binding
     {
         for (uint32 l = 0; l < MAX_RUNES && count > 0; ++l)
         {
@@ -6805,7 +6808,7 @@ void Spell::EffectActivateRune(SpellEffIndex effIndex)
     }
 
     // Empower rune weapon
-    if (m_spellInfo->Id == 47568)
+    if (m_spellInfo->StockId() == 47568) // wow-realms: copy binding
     {
         // Need to do this just once
         if (effIndex != 0)

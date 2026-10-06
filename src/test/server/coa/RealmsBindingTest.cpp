@@ -4,6 +4,7 @@
 #include "ObjectAccessor.h"
 #include "RealmsBinding.h"
 #include "SpellInfoTestHelper.h"
+#include "SpellMgr.h"
 #include <map>
 #include <memory>
 
@@ -86,6 +87,19 @@ TEST_F(RealmsBindingTest, StockIdIsTheNamesakeForACopyAndTheIdOtherwise)
     EXPECT_EQ(Realms::StockId(Namesake), Namesake);
     EXPECT_EQ(Realms::StockId(Unpaired), Unpaired);
     EXPECT_EQ(Realms::StockId(SpellStoreSize + 5), SpellStoreSize + 5);
+}
+
+TEST_F(RealmsBindingTest, TwinSourceIsThePairListNamesakeForACopyWithNoTwin)
+{
+    constexpr uint32 RenamedNamesake = 50622;
+    constexpr uint32 RenamedCopy = 1150622;
+    for (uint32 id : { RenamedNamesake, RenamedCopy })
+        spells[id] = SpellInfoBuilder().WithId(id).BuildUnique();
+    Realms::Bind({ { RenamedCopy, RenamedNamesake } }, {}, SpellStoreSize, Lookup());
+
+    EXPECT_EQ(sSpellMgr->GetSpellTwinSource(RenamedCopy), RenamedNamesake);
+    EXPECT_EQ(sSpellMgr->GetSpellTwinSource(RenamedNamesake), RenamedNamesake);
+    EXPECT_EQ(sSpellMgr->GetSpellTwinSource(Unpaired), Unpaired);
 }
 
 TEST_F(RealmsBindingTest, BindKeepsTheFirstPairForASpellAndSkipsSelfPairs)

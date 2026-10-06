@@ -1102,7 +1102,8 @@ class spell_pal_lay_on_hands : public SpellScript
             caster->CastSpell(caster, SPELL_PALADIN_IMMUNE_SHIELD_MARKER, true);
         }
         // Xinef: Glyph of Divinity
-        else if (target && caster->HasAuraOrTwin(54939) && GetSpellInfo()->Id != 633 && _manaAmount > 0) // excluding first rank
+        // wow-realms: copy binding
+        else if (target && caster->HasAuraOrTwin(54939) && GetSpellInfo()->StockId() != 633 && _manaAmount > 0) // excluding first rank
         {
             _manaAmount = target->GetPower(POWER_MANA) - _manaAmount;
             if (_manaAmount > 0)
