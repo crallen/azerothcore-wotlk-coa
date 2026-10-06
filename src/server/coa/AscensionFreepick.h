@@ -24,6 +24,8 @@ struct UploadResult
 };
 
 Realm ReadRealm();
+void Initialize();
+Catalog const& LoadedCatalog();
 bool RealmIsClassless();
 bool RealmOffersMysticAltars();
 bool IsFreepickHero(Player const* player);

@@ -18,12 +18,15 @@
 #include "Log.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "RealmsLegacyTalents.h"
 #include "SpellMgr.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
 void WorldSession::HandleLearnTalentOpcode(WorldPacket& recvData)
 {
+    if (Realms::RefusesLegacyTalents(_player)) // wow-realms: advancement, free-pick owns a stock class's talents
+        return recvData.rfinish();
     uint32 talent_id, requested_rank;
     recvData >> talent_id >> requested_rank;
 
@@ -34,6 +37,8 @@ void WorldSession::HandleLearnTalentOpcode(WorldPacket& recvData)
 void WorldSession::HandleLearnPreviewTalents(WorldPacket& recvPacket)
 {
     LOG_DEBUG("network", "CMSG_LEARN_PREVIEW_TALENTS");
+    if (Realms::RefusesLegacyTalents(_player)) // wow-realms: advancement, free-pick owns a stock class's talents
+        return recvPacket.rfinish();
 
     uint32 talentsCount;
     recvPacket >> talentsCount;
@@ -58,6 +63,8 @@ void WorldSession::HandleLearnPreviewTalents(WorldPacket& recvPacket)
 void WorldSession::HandleTalentWipeConfirmOpcode(WorldPacket& recvData)
 {
     LOG_DEBUG("network", "MSG_TALENT_WIPE_CONFIRM");
+    if (Realms::RefusesLegacyTalents(_player)) // wow-realms: advancement, free-pick owns a stock class's talents
+        return recvData.rfinish();
     ObjectGuid guid;
     recvData >> guid;
 
