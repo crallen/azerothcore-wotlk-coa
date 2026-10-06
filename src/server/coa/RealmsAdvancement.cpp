@@ -7,10 +7,13 @@
 #include "AscensionFreepick.h"
 #include "ClientDBC.h"
 #include "DBCStores.h"
+#include "DatabaseEnv.h"
 #include "Log.h"
 #include "Player.h"
 #include "RealmsBinding.h"
 #include "ScriptMgr.h"
+#include "SpellMgr.h"
+#include "World.h"
 #include <algorithm>
 #include <atomic>
 #include <unordered_map>
@@ -22,6 +25,10 @@ namespace
 constexpr std::uint32_t TREE_COUNT = 3;
 
 std::unordered_map<uint8, TreeTabIds> ClassTreeTabs;
+AscensionWarcraftReborn::Data RebornData;
+AscensionFreepick::Realm RebornRealm;
+bool RebornDataLoaded = false;
+std::unordered_map<uint8, std::unordered_set<uint32>> ClassTrainerSpells;
 
 bool StockPlayer(Player const* player)
 {
@@ -58,6 +65,38 @@ std::map<std::uint32_t, std::string> NamesOf(ClientDBC const& dbc)
         names[record.GetUInt32(0)] = std::string(record.GetString(1));
     }
     return names;
+}
+
+void LoadStartingKits()
+{
+    RebornRealm = AscensionFreepick::ReadRealm();
+    RebornDataLoaded = AscensionWarcraftReborn::LoadData(RebornData);
+    if (!RebornDataLoaded)
+    {
+        LOG_ERROR("coa", "Realms advancement cannot forget to a starting kit: Reborn data did not load");
+        return;
+    }
+    if (QueryResult result = WorldDatabase.Query("SELECT `class`, `spell` FROM `custom_wcr_trainer_source`"))
+        do
+        {
+            Field const* fields = result->Fetch();
+            ClassTrainerSpells[fields[0].Get<uint8>()].insert(fields[1].Get<uint32>());
+        } while (result->NextRow());
+}
+
+uint32 StartLevel(Player const* player)
+{
+    return player->getClass() == CLASS_DEATH_KNIGHT ? sWorld->getIntConfig(CONFIG_START_HEROIC_PLAYER_LEVEL) :
+        sWorld->getIntConfig(CONFIG_START_PLAYER_LEVEL);
+}
+
+std::vector<LineAbility> LineAbilitiesOf(std::uint32_t spellId)
+{
+    std::vector<LineAbility> abilities;
+    SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
+    for (auto itr = bounds.first; itr != bounds.second; ++itr)
+        abilities.push_back({ itr->second->SkillLine, itr->second->AcquireMethod });
+    return abilities;
 }
 
 void LoadTreeTabs(AscensionFreepick::Catalog const& catalog)
@@ -218,6 +257,39 @@ std::uint32_t SpendBudget(AscensionFreepick::Build& build, TreeTabIds const& tab
     return build.GlobalTE(0) - before;
 }
 
+StartingKit KitFrom(AscensionWarcraftReborn::Data const& data, AscensionFreepick::Realm const& realm, uint8 classId,
+    uint32 startLevel, uint32 level, std::unordered_set<uint32> trainerSpells)
+{
+    std::vector<std::uint32_t> const lines = AscensionWarcraftReborn::ClassSkillLines(data, realm, classId);
+    std::vector<std::uint32_t> const starting =
+        AscensionWarcraftReborn::StartingSpells(data, realm, classId, startLevel);
+    std::vector<std::uint32_t> const automatic = AscensionWarcraftReborn::AutomaticSpells(data, realm, classId, level);
+    StartingKit kit{ { lines.begin(), lines.end() }, { starting.begin(), starting.end() }, std::move(trainerSpells) };
+    kit.CreateSpells.insert(automatic.begin(), automatic.end());
+    return kit;
+}
+
+std::vector<std::uint32_t> SpellsToForget(std::vector<std::uint32_t> const& known, StartingKit const& kit,
+    SkillLineLookup const& lineAbilities)
+{
+    std::vector<std::uint32_t> forgotten;
+    for (std::uint32_t spellId : known)
+    {
+        bool onClassLine = false;
+        bool learnedWithLine = kit.CreateSpells.contains(spellId);
+        for (LineAbility const& ability : lineAbilities(spellId))
+        {
+            if (!kit.Lines.contains(ability.Line))
+                continue;
+            onClassLine = true;
+            learnedWithLine = learnedWithLine || ability.AcquireMethod == SKILL_LINE_ABILITY_LEARNED_ON_SKILL_LEARN;
+        }
+        if ((onClassLine || kit.TrainerSpells.contains(spellId)) && !learnedWithLine)
+            forgotten.push_back(spellId);
+    }
+    return forgotten;
+}
+
 TreeTabIds TreeTabs(uint8 classId)
 {
     auto const tabs = ClassTreeTabs.find(classId);
@@ -261,6 +333,32 @@ uint32 SpendTalentBudget(Player* player, uint8 treeIndex)
     return std::string_view(applied.Result) == "CA_UPDATE_ENTRIES_OK" ? spent : 0;
 }
 
+uint32 ForgetToStartingKit(Player* player, uint8 levelAfter)
+{
+    if (!StockPlayer(player) || !RebornDataLoaded)
+        return 0;
+    std::uint32_t forgotten = AscensionFreepick::ClearBuild(player);
+
+    std::unordered_set<uint32> trainerSpells;
+    if (auto const loaded = ClassTrainerSpells.find(player->getClass()); loaded != ClassTrainerSpells.end())
+        trainerSpells = loaded->second;
+    StartingKit const kit = KitFrom(RebornData, RebornRealm, player->getClass(), StartLevel(player), levelAfter,
+        std::move(trainerSpells));
+
+    std::vector<std::uint32_t> known;
+    for (auto const& [spellId, spell] : player->GetSpellMap())
+        if (spell->State != PLAYERSPELL_REMOVED)
+            known.push_back(spellId);
+    for (std::uint32_t spellId : SpellsToForget(known, kit, LineAbilitiesOf))
+        if (player->HasSpell(spellId))
+        {
+            player->removeSpell(spellId, SPEC_MASK_ALL, false);
+            ++forgotten;
+        }
+    LOG_INFO("coa", "Realms advancement forgot {} spells of {} to the starting kit", forgotten, player->GetName());
+    return forgotten;
+}
+
 class RealmsAdvancementWorld final : public WorldScript
 {
 public:
@@ -273,6 +371,7 @@ public:
         AscensionFreepick::Initialize();
         AscensionFreepick::Catalog const& catalog = AscensionFreepick::LoadedCatalog();
         LoadTreeTabs(catalog);
+        LoadStartingKits();
         LOG_INFO("coa", "Realms advancement: {} stock catalog rows, {} classes budgeted", StockCatalogRows(catalog),
             BudgetedStockClasses(catalog));
     }

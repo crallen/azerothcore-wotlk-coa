@@ -236,4 +236,119 @@ TEST_F(RealmsTalentPickerTest, ReplacesABuildOverItsBudgetAndSpendsTheWholeBudge
     EXPECT_EQ(build.RankOf(ANGER), 1u);
     EXPECT_EQ(build.GlobalTE(0), build.TEBudget());
 }
+
+TEST(RealmsForgetTest, KeepsTheStartingKitAndForgetsTrainerQuestAndLineSpells)
+{
+    constexpr std::uint32_t CLASS_LINE = 11001;
+    constexpr std::uint32_t OTHER_LINE = 98;
+    constexpr std::uint32_t LEARNED_WITH_LINE = 100;
+    constexpr std::uint32_t BOUGHT_ON_LINE = 101;
+    constexpr std::uint32_t CREATE_SPELL = 102;
+    constexpr std::uint32_t QUEST_REWARD = 103;
+    constexpr std::uint32_t OTHER_LINE_SPELL = 104;
+    constexpr std::uint32_t SOLD_AND_LEARNED_WITH_LINE = 105;
+    constexpr std::uint32_t RACIAL = 106;
+    std::map<std::uint32_t, std::vector<Realms::LineAbility>> const lines{
+        { LEARNED_WITH_LINE, { { CLASS_LINE, 2 } } }, { BOUGHT_ON_LINE, { { CLASS_LINE, 0 } } },
+        { CREATE_SPELL, { { CLASS_LINE, 0 } } }, { OTHER_LINE_SPELL, { { OTHER_LINE, 0 } } },
+        { SOLD_AND_LEARNED_WITH_LINE, { { CLASS_LINE, 2 } } } };
+    Realms::StartingKit const kit{ { CLASS_LINE }, { CREATE_SPELL }, { QUEST_REWARD, SOLD_AND_LEARNED_WITH_LINE } };
+
+    std::vector<std::uint32_t> const forgotten = Realms::SpellsToForget({ LEARNED_WITH_LINE, BOUGHT_ON_LINE,
+        CREATE_SPELL, QUEST_REWARD, OTHER_LINE_SPELL, SOLD_AND_LEARNED_WITH_LINE, RACIAL }, kit,
+        [&lines](std::uint32_t spellId)
+        {
+            auto const found = lines.find(spellId);
+            return found == lines.end() ? std::vector<Realms::LineAbility>{} : found->second;
+        });
+
+    EXPECT_EQ(forgotten, (std::vector<std::uint32_t>{ BOUGHT_ON_LINE, QUEST_REWARD }));
+}
+
+class RealmsStartingKitTest : public RealmsAdvancementTest
+{
+protected:
+    static constexpr std::uint32_t REBORN_MAGE = 38;
+    static constexpr std::uint32_t ARMS_LINE = 11026;
+    static constexpr std::uint32_t FURY_LINE = 11256;
+    static constexpr std::uint32_t STOCK_ARMS_LINE = 26;
+    static constexpr std::uint32_t ARCANE_LINE = 11237;
+    static constexpr std::uint32_t HEROIC_STRIKE = 1100078;
+    static constexpr std::uint32_t BATTLE_SHOUT = 1106673;
+    static constexpr std::uint32_t CHARGE = 1100100;
+    static constexpr std::uint32_t EXECUTE = 1105308;
+    static constexpr std::uint32_t PARRY = 1103127;
+    static constexpr std::uint32_t DUAL_WIELD = 1100674;
+    static constexpr std::uint32_t FROST_ARMOR = 1100168;
+
+    void SetUp() override
+    {
+        RealmsAdvancementTest::SetUp();
+        data.Catalog = catalog;
+        data.Catalog.ClassTypes[REBORN_MAGE] = { MAGE, false, false, true };
+        AddAbility(10, HEROIC_STRIKE, REBORN_WARRIOR, 1, 0, { ARMS_LINE, STOCK_ARMS_LINE });
+        AddAbility(11, BATTLE_SHOUT, REBORN_WARRIOR, 1, 0, { FURY_LINE });
+        AddAbility(12, CHARGE, REBORN_WARRIOR, 4, 0, { ARMS_LINE });
+        AddAbility(13, EXECUTE, REBORN_WARRIOR, 24, 0, { FURY_LINE });
+        AddAbility(14, PARRY, REBORN_WARRIOR, 6, ROW_AUTOMATIC, { ARMS_LINE });
+        AddAbility(15, DUAL_WIELD, REBORN_WARRIOR, 20, ROW_AUTOMATIC, { FURY_LINE });
+        AddAbility(16, FROST_ARMOR, REBORN_MAGE, 1, 0, { ARCANE_LINE });
+    }
+
+    void AddAbility(std::uint32_t entryId, std::uint32_t spellId, std::uint32_t classType, std::uint32_t level,
+        std::uint32_t flags, std::vector<std::uint32_t> lines)
+    {
+        Row row;
+        row.EntryId = entryId;
+        row.Type = ENTRY_ABILITY;
+        row.ClassType = classType;
+        row.RequiredLevel = level;
+        row.Flags = ROW_DISPLAY | flags;
+        row.Realms[0] = true;
+        row.Spells[0] = spellId;
+        data.Catalog.RowOrder.push_back(entryId);
+        data.Catalog.Rows.emplace(entryId, std::move(row));
+        data.SkillLines[spellId] = std::move(lines);
+    }
+
+    Realms::StartingKit Kit(std::uint32_t startLevel, std::uint32_t level,
+        std::unordered_set<std::uint32_t> trainerSpells = {}) const
+    {
+        return Realms::KitFrom(data, reborn, WARRIOR, startLevel, level, std::move(trainerSpells));
+    }
+
+    AscensionWarcraftReborn::Data data;
+};
+
+TEST_F(RealmsStartingKitTest, LinesAreTheRebornSkillLinesOfTheClassAbilities)
+{
+    EXPECT_EQ(Kit(1, 1).Lines, (std::unordered_set<std::uint32_t>{ ARMS_LINE, FURY_LINE }));
+}
+
+TEST_F(RealmsStartingKitTest, CreateSpellsHoldTheAbilitiesOfTheStartLevel)
+{
+    EXPECT_EQ(Kit(1, 1).CreateSpells, (std::unordered_set<std::uint32_t>{ HEROIC_STRIKE, BATTLE_SHOUT }));
+    EXPECT_EQ(Kit(4, 4).CreateSpells, (std::unordered_set<std::uint32_t>{ HEROIC_STRIKE, BATTLE_SHOUT, CHARGE }));
+}
+
+TEST_F(RealmsStartingKitTest, TrainedAbilitiesAboveTheStartLevelAreNotInTheKitAtAnyLevel)
+{
+    Realms::StartingKit const kit = Kit(1, 30);
+    EXPECT_FALSE(kit.CreateSpells.contains(CHARGE));
+    EXPECT_FALSE(kit.CreateSpells.contains(EXECUTE));
+}
+
+TEST_F(RealmsStartingKitTest, CreateSpellsAddTheAutomaticAbilitiesUpToTheCharactersLevel)
+{
+    EXPECT_FALSE(Kit(1, 5).CreateSpells.contains(PARRY));
+    Realms::StartingKit const kit = Kit(1, 19);
+    EXPECT_TRUE(kit.CreateSpells.contains(PARRY));
+    EXPECT_FALSE(kit.CreateSpells.contains(DUAL_WIELD));
+    EXPECT_TRUE(Kit(1, 20).CreateSpells.contains(DUAL_WIELD));
+}
+
+TEST_F(RealmsStartingKitTest, TrainerSpellsAreTheTrainerSourcesGiven)
+{
+    EXPECT_EQ(Kit(1, 1, { CHARGE, EXECUTE }).TrainerSpells, (std::unordered_set<std::uint32_t>{ CHARGE, EXECUTE }));
+}
 }
