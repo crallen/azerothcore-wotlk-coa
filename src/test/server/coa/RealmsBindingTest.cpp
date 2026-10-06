@@ -233,6 +233,93 @@ TEST_F(RealmsBindingTest, BindGivesACopyWithoutProcFlagsItsNamesakesAndKeepsItsO
     EXPECT_EQ(bound.ProcFlagsMirrored, 1u);
 }
 
+TEST_F(RealmsBindingTest, BindFillsAZeroProcChanceAndFillsChargesOnlyWhereTheCopyProcs)
+{
+    constexpr uint32 ShockNamesake = 51525;
+    constexpr uint32 ShockCopy = 1151525;
+    constexpr uint32 MendingNamesake = 41635;
+    constexpr uint32 MendingCopy = 1141635;
+    spells[ShockNamesake] = SpellInfoBuilder().WithId(ShockNamesake).WithProcFlags(4).WithProcChance(5)
+        .WithProcCharges(2).BuildUnique();
+    spells[ShockCopy] = SpellInfoBuilder().WithId(ShockCopy).WithProcFlags(4).WithProcCharges(3).BuildUnique();
+    spells[MendingNamesake] = SpellInfoBuilder().WithId(MendingNamesake).WithProcFlags(0x20).WithProcChance(100)
+        .WithProcCharges(5).BuildUnique();
+    spells[MendingCopy] = SpellInfoBuilder().WithId(MendingCopy).WithProcFlags(0x20).WithProcChance(100).BuildUnique();
+    spells[Namesake]->ProcChance = 50;
+    spells[Namesake]->ProcCharges = 1;
+
+    Realms::BindingCounts const bound = Realms::Bind(
+        { { ShockCopy, ShockNamesake }, { MendingCopy, MendingNamesake }, { Copy, Namesake } },
+        {}, SpellStoreSize, Lookup());
+
+    EXPECT_EQ(spells[ShockCopy]->ProcChance, 5u);
+    EXPECT_EQ(spells[ShockCopy]->ProcCharges, 3u);
+    EXPECT_EQ(spells[MendingCopy]->ProcCharges, 5u);
+    EXPECT_EQ(spells[Copy]->ProcChance, 50u);
+    EXPECT_EQ(spells[Copy]->ProcCharges, 0u);
+    EXPECT_EQ(bound.ProcChancesMirrored, 2u);
+    EXPECT_EQ(bound.ProcChargesMirrored, 1u);
+}
+
+TEST_F(RealmsBindingTest, BindFillsAZeroClassMaskUnderTheSameAuraAndAddsTheNamesakesFamilyFlags)
+{
+    constexpr uint32 LightNamesake = 20359;
+    constexpr uint32 LightCopy = 1120359;
+    constexpr uint32 SufferingNamesake = 47581;
+    constexpr uint32 SufferingCopy = 1147581;
+    constexpr uint32 OwnMaskNamesake = 62097;
+    constexpr uint32 OwnMaskCopy = 1162097;
+    auto modifier = [](uint32 id, uint32 family)
+    {
+        return SpellInfoBuilder().WithId(id).WithSpellFamilyName(family)
+            .WithEffect(EFFECT_0, SPELL_EFFECT_APPLY_AURA, SPELL_AURA_ADD_PCT_MODIFIER).BuildUnique();
+    };
+    spells[LightNamesake] = modifier(LightNamesake, SPELLFAMILY_PALADIN);
+    spells[LightNamesake]->_GetEffect(EFFECT_0).SpellClassMask = flag96(0x80200000, 0, 0);
+    spells[LightCopy] = modifier(LightCopy, SPELLFAMILY_PALADIN);
+    spells[OwnMaskNamesake] = modifier(OwnMaskNamesake, SPELLFAMILY_SHAMAN);
+    spells[OwnMaskNamesake]->_GetEffect(EFFECT_0).SpellClassMask = flag96(0x1, 0, 0x2);
+    spells[OwnMaskCopy] = modifier(OwnMaskCopy, SPELLFAMILY_SHAMAN);
+    spells[OwnMaskCopy]->_GetEffect(EFFECT_0).SpellClassMask = flag96(0x2, 0x1, 0x2);
+    spells[SufferingNamesake] = SpellInfoBuilder().WithId(SufferingNamesake).WithSpellFamilyName(SPELLFAMILY_PRIEST)
+        .WithSpellFamilyFlags(0x800000).BuildUnique();
+    spells[SufferingCopy] = SpellInfoBuilder().WithId(SufferingCopy).WithSpellFamilyName(SPELLFAMILY_PRIEST)
+        .WithSpellFamilyFlags(0, 0x10).BuildUnique();
+
+    Realms::BindingCounts const bound = Realms::Bind({ { LightCopy, LightNamesake },
+        { SufferingCopy, SufferingNamesake }, { OwnMaskCopy, OwnMaskNamesake } }, {}, SpellStoreSize, Lookup());
+
+    EXPECT_EQ(spells[LightCopy]->GetEffect(EFFECT_0).SpellClassMask, flag96(0x80200000, 0, 0));
+    EXPECT_EQ(spells[OwnMaskCopy]->GetEffect(EFFECT_0).SpellClassMask, flag96(0x2, 0x1, 0x2));
+    EXPECT_EQ(spells[SufferingCopy]->SpellFamilyFlags, flag96(0x800000, 0x10, 0));
+    EXPECT_EQ(bound.ClassMasksMirrored, 1u);
+    EXPECT_EQ(bound.FamilyFlagsMirrored, 1u);
+}
+
+TEST_F(RealmsBindingTest, BindReplacesOnlyATriggerSpellTheStoreLacks)
+{
+    constexpr uint32 InvisibilityNamesake = 66;
+    constexpr uint32 InvisibilityCopy = 1100066;
+    constexpr uint32 Fade = 32612;
+    constexpr uint32 MissingFade = 1135009;
+    spells[Fade] = SpellInfoBuilder().WithId(Fade).BuildUnique();
+    spells[InvisibilityNamesake] = SpellInfoBuilder().WithId(InvisibilityNamesake)
+        .WithEffect(EFFECT_1, SPELL_EFFECT_APPLY_AURA, SPELL_AURA_PERIODIC_TRIGGER_SPELL)
+        .WithEffectTriggerSpell(EFFECT_1, Fade).BuildUnique();
+    spells[InvisibilityCopy] = SpellInfoBuilder().WithId(InvisibilityCopy)
+        .WithEffect(EFFECT_1, SPELL_EFFECT_APPLY_AURA, SPELL_AURA_PERIODIC_TRIGGER_SPELL)
+        .WithEffectTriggerSpell(EFFECT_1, MissingFade).BuildUnique();
+    spells[Namesake] = SpellInfoBuilder().WithId(Namesake).WithEffectTriggerSpell(EFFECT_0, Fade).BuildUnique();
+    spells[Copy] = SpellInfoBuilder().WithId(Copy).WithEffectTriggerSpell(EFFECT_0, Unpaired).BuildUnique();
+
+    Realms::BindingCounts const bound = Realms::Bind(
+        { { InvisibilityCopy, InvisibilityNamesake }, { Copy, Namesake } }, {}, SpellStoreSize, Lookup());
+
+    EXPECT_EQ(spells[InvisibilityCopy]->GetEffect(EFFECT_1).TriggerSpell, Fade);
+    EXPECT_EQ(spells[Copy]->GetEffect(EFFECT_0).TriggerSpell, Unpaired);
+    EXPECT_EQ(bound.TriggersMirrored, 1u);
+}
+
 TEST_F(RealmsBindingTest, ReportBindingCarriesTheLoadedCountsAndNothingWhenEmpty)
 {
     Realms::BindingCounts const report = Realms::ReportBinding();

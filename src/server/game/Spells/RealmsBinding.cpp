@@ -90,6 +90,58 @@ namespace
         return changed;
     }
 
+    // The client's Spell.dbc leaves some copies without a value their namesake has, where the namesake's
+    // rows and scripts rely on it: no proc flags (the paladin seals); no proc chance (a spell_proc row may
+    // hold the flags); no charges where it procs; an effect's spell-mod mask of 0 under the same aura;
+    // family flags the namesake's modifiers match on; a trigger spell the store lacks
+    // (docs/warcraft-reborn/audit.md in wow-realms). Each gap takes the namesake's value; a value Ascension
+    // set on the copy is kept. Runs before the spell_proc rows load, which read the proc fields from here.
+    void FillGaps(SpellInfo& copy, SpellInfo const& namesake, uint32 spellStoreSize,
+        Realms::SpellInfoLookup const& spellInfo, Realms::BindingCounts& counts)
+    {
+        if (!copy.ProcFlags && namesake.ProcFlags)
+        {
+            copy.ProcFlags = namesake.ProcFlags;
+            ++counts.ProcFlagsMirrored;
+        }
+        // A spell_proc row can supply the flags; its chance still comes from here.
+        if (!copy.ProcChance && namesake.ProcChance)
+        {
+            copy.ProcChance = namesake.ProcChance;
+            ++counts.ProcChancesMirrored;
+        }
+        if (copy.ProcFlags && !copy.ProcCharges && namesake.ProcCharges)
+        {
+            copy.ProcCharges = namesake.ProcCharges;
+            ++counts.ProcChargesMirrored;
+        }
+
+        bool const sameFamily = copy.SpellFamilyName && copy.SpellFamilyName == namesake.SpellFamilyName;
+        if (sameFamily && (namesake.SpellFamilyFlags & ~copy.SpellFamilyFlags))
+        {
+            copy.SpellFamilyFlags |= namesake.SpellFamilyFlags;
+            ++counts.FamilyFlagsMirrored;
+        }
+
+        auto const exists = [&](uint32 id) { return id < spellStoreSize && spellInfo(id); };
+        for (uint8 index = 0; index < MAX_SPELL_EFFECTS; ++index)
+        {
+            SpellEffectInfo const& theirs = namesake.GetEffect(SpellEffIndex(index));
+            SpellEffectInfo& ours = copy._GetEffect(SpellEffIndex(index));
+            if (sameFamily && !ours.SpellClassMask && theirs.SpellClassMask && ours.ApplyAuraName
+                && ours.ApplyAuraName == theirs.ApplyAuraName)
+            {
+                ours.SpellClassMask = theirs.SpellClassMask;
+                ++counts.ClassMasksMirrored;
+            }
+            if (ours.TriggerSpell && !exists(ours.TriggerSpell) && theirs.TriggerSpell && exists(theirs.TriggerSpell))
+            {
+                ours.TriggerSpell = theirs.TriggerSpell;
+                ++counts.TriggersMirrored;
+            }
+        }
+    }
+
     bool PairTablesExist()
     {
         QueryResult result = WorldDatabase.Query(
@@ -170,16 +222,7 @@ namespace Realms
             flags[pair.Copy] |= BINDING_COPY;
             copy->RealmsNamesake = pair.Namesake;
             ++counts.Pairs;
-
-            // Some copies carry no proc flags in the client's Spell.dbc (the paladin seals), and both a
-            // spell_proc row with ProcFlags 0 and the core's generated procs read them from here.
-            if (!copy->ProcFlags && namesake->ProcFlags)
-            {
-                copy->ProcFlags = namesake->ProcFlags;
-                if (!copy->ProcChance)
-                    copy->ProcChance = namesake->ProcChance;
-                ++counts.ProcFlagsMirrored;
-            }
+            FillGaps(*copy, *namesake, spellStoreSize, spellInfo, counts);
         }
 
         for (uint32 copy : correctionExclusions)
@@ -238,8 +281,10 @@ namespace Realms
     {
         if (Enabled())
             LOG_INFO("coa", "Realms copy-binding: {} pairs, {} correction exclusions, {} corrections mirrored, "
-                "{} proc flags mirrored", bound.Pairs, bound.CorrectionExclusions, bound.CorrectionsMirrored,
-                bound.ProcFlagsMirrored);
+                "gaps filled: {} proc flags, {} proc chances, {} proc charges, {} class masks, {} family flags, "
+                "{} triggers", bound.Pairs, bound.CorrectionExclusions, bound.CorrectionsMirrored,
+                bound.ProcFlagsMirrored, bound.ProcChancesMirrored, bound.ProcChargesMirrored,
+                bound.ClassMasksMirrored, bound.FamilyFlagsMirrored, bound.TriggersMirrored);
         return bound;
     }
 
