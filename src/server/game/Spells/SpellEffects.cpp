@@ -428,7 +428,10 @@ void Spell::EffectAscensionRefreshAura(SpellEffIndex effIndex)
     if (!target || !effect.MiscValue)
         return;
 
-    Aura* aura = target->GetAura(effect.MiscValue);
+    // wow-realms: the caster's own aura of any rank first; a Warcraft Reborn copy names rank 1 of a chain
+    Aura* aura = target->GetAuraOfRankedSpell(effect.MiscValue, m_caster->GetGUID());
+    if (!aura)
+        aura = target->GetAura(effect.MiscValue);
     if (!aura)
         return;
 
