@@ -361,6 +361,8 @@ public:
     bool AscensionIgnoreAbsorbAndResistance = false;
     bool AscensionIgnoreAbsorb = false;
     bool AscensionInheritsResolvedAmount = false;
+    // wow-realms: copy binding, the stock namesake of a Warcraft Reborn spell copy, else 0.
+    uint32 RealmsNamesake = 0;
     // Runtime-only opt-in for explicitly authored coefficients. Rank base
     // growth still uses the original SpellLevel and MaxLevel metadata.
     bool IgnoreSpellLevelPenalty = false;
@@ -561,6 +563,9 @@ public:
     uint32 GetRecoveryTime() const;
 
     int32 CalcPowerCost(Unit const* caster, SpellSchoolMask schoolMask, Spell* spell = nullptr) const;
+
+    // wow-realms: copy binding, the id a stock comparison should see.
+    uint32 StockId() const { return RealmsNamesake ? RealmsNamesake : Id; }
 
     bool IsRanked() const;
     uint8 GetRank() const;
