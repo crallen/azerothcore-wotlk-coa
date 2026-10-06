@@ -170,6 +170,16 @@ namespace Realms
             flags[pair.Copy] |= BINDING_COPY;
             copy->RealmsNamesake = pair.Namesake;
             ++counts.Pairs;
+
+            // Some copies carry no proc flags in the client's Spell.dbc (the paladin seals), and both a
+            // spell_proc row with ProcFlags 0 and the core's generated procs read them from here.
+            if (!copy->ProcFlags && namesake->ProcFlags)
+            {
+                copy->ProcFlags = namesake->ProcFlags;
+                if (!copy->ProcChance)
+                    copy->ProcChance = namesake->ProcChance;
+                ++counts.ProcFlagsMirrored;
+            }
         }
 
         for (uint32 copy : correctionExclusions)
@@ -227,8 +237,9 @@ namespace Realms
     BindingCounts ReportBinding()
     {
         if (Enabled())
-            LOG_INFO("coa", "Realms copy-binding: {} pairs, {} correction exclusions, {} corrections mirrored",
-                bound.Pairs, bound.CorrectionExclusions, bound.CorrectionsMirrored);
+            LOG_INFO("coa", "Realms copy-binding: {} pairs, {} correction exclusions, {} corrections mirrored, "
+                "{} proc flags mirrored", bound.Pairs, bound.CorrectionExclusions, bound.CorrectionsMirrored,
+                bound.ProcFlagsMirrored);
         return bound;
     }
 
