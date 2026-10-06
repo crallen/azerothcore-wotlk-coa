@@ -174,3 +174,49 @@ TEST_F(RealmsBindingTest, AnEmptyMapResolvesNothing)
     EXPECT_EQ(Realms::ForCaster(warrior, Namesake), Namesake);
     EXPECT_EQ(Realms::Partner(Copy), 0u);
 }
+
+TEST_F(RealmsBindingTest, MirrorCorrectionAppliesANamesakesFixToItsCopyAndCountsIt)
+{
+    Realms::SpellFix const fix = [](SpellInfo* spell) { spell->AttributesEx3 |= 0x40; };
+
+    Realms::MirrorCorrection(Namesake, fix, {});
+
+    EXPECT_EQ(spells[Copy]->AttributesEx3, 0x40u);
+    EXPECT_EQ(spells[Namesake]->AttributesEx3, 0u);
+    EXPECT_EQ(Realms::ReportBinding().CorrectionsMirrored, 1u);
+}
+
+TEST_F(RealmsBindingTest, MirrorCorrectionLeavesACopyTheTwinPassCorrectedAndCountsNothing)
+{
+    Realms::SpellFix const fix = [](SpellInfo* spell) { spell->AttributesEx3 |= 0x40; };
+
+    Realms::MirrorCorrection(Namesake, fix, { spells[Copy].get() });
+
+    EXPECT_EQ(spells[Copy]->AttributesEx3, 0u);
+    EXPECT_EQ(Realms::ReportBinding().CorrectionsMirrored, 0u);
+}
+
+TEST_F(RealmsBindingTest, MirrorCorrectionSkipsExcludedCopiesCopiesAndUnpairedIds)
+{
+    Realms::SpellFix const fix = [](SpellInfo* spell) { spell->AttributesEx3 |= 0x40; };
+
+    Realms::MirrorCorrection(ExcludedNamesake, fix, {});
+    Realms::MirrorCorrection(Copy, fix, {});
+    Realms::MirrorCorrection(Unpaired, fix, {});
+
+    EXPECT_EQ(spells[ExcludedCopy]->AttributesEx3, 0u);
+    EXPECT_EQ(spells[Namesake]->AttributesEx3, 0u);
+    EXPECT_EQ(spells[Copy]->AttributesEx3, 0u);
+    EXPECT_EQ(spells[Unpaired]->AttributesEx3, 0u);
+    EXPECT_EQ(Realms::ReportBinding().CorrectionsMirrored, 0u);
+}
+
+TEST_F(RealmsBindingTest, ReportBindingCarriesTheLoadedCountsAndNothingWhenEmpty)
+{
+    Realms::BindingCounts const report = Realms::ReportBinding();
+    EXPECT_EQ(report.Pairs, 2u);
+    EXPECT_EQ(report.CorrectionExclusions, 1u);
+
+    Realms::ClearBinding();
+    EXPECT_EQ(Realms::ReportBinding().Pairs, 0u);
+}

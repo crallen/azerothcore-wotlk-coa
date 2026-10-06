@@ -19,6 +19,7 @@
 #include "DBCStructure.h"
 #include "GameGraveyard.h"
 #include "ItemTemplate.h"
+#include "RealmsBinding.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 
@@ -64,6 +65,7 @@ inline void ApplySpellFix(std::initializer_list<uint32> spellIds, void(*fix)(Spe
         fix(const_cast<SpellInfo*>(spellInfo));
         for (SpellInfo* twin : twins)
             fix(twin);
+        Realms::MirrorCorrection(spellId, fix, twins); // wow-realms: copy binding
     }
 }
 
