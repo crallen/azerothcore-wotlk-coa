@@ -211,6 +211,28 @@ TEST_F(RealmsBindingTest, MirrorCorrectionSkipsExcludedCopiesCopiesAndUnpairedId
     EXPECT_EQ(Realms::ReportBinding().CorrectionsMirrored, 0u);
 }
 
+TEST_F(RealmsBindingTest, BindGivesACopyWithoutProcFlagsItsNamesakesAndKeepsItsOwn)
+{
+    constexpr uint32 SealNamesake = 21084;
+    constexpr uint32 SealCopy = 1121084;
+    constexpr uint32 OwnFlagsNamesake = 20154;
+    constexpr uint32 OwnFlagsCopy = 1120154;
+    spells[SealNamesake] = SpellInfoBuilder().WithId(SealNamesake).WithProcFlags(20).WithProcChance(100).BuildUnique();
+    spells[SealCopy] = SpellInfoBuilder().WithId(SealCopy).WithProcChance(101).BuildUnique();
+    spells[OwnFlagsNamesake] = SpellInfoBuilder().WithId(OwnFlagsNamesake).WithProcFlags(4).BuildUnique();
+    spells[OwnFlagsCopy] = SpellInfoBuilder().WithId(OwnFlagsCopy).WithProcFlags(20).BuildUnique();
+
+    Realms::BindingCounts const bound = Realms::Bind(
+        { { SealCopy, SealNamesake }, { OwnFlagsCopy, OwnFlagsNamesake }, { Copy, Namesake } },
+        {}, SpellStoreSize, Lookup());
+
+    EXPECT_EQ(spells[SealCopy]->ProcFlags, 20u);
+    EXPECT_EQ(spells[SealCopy]->ProcChance, 101u);
+    EXPECT_EQ(spells[OwnFlagsCopy]->ProcFlags, 20u);
+    EXPECT_EQ(spells[Copy]->ProcFlags, 0u);
+    EXPECT_EQ(bound.ProcFlagsMirrored, 1u);
+}
+
 TEST_F(RealmsBindingTest, ReportBindingCarriesTheLoadedCountsAndNothingWhenEmpty)
 {
     Realms::BindingCounts const report = Realms::ReportBinding();
