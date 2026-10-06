@@ -16,6 +16,7 @@
  */
 
 #include "RealmCard.h"
+#include "Config.h"
 #include "StringFormat.h"
 
 // Pages 1 and 2 hold six cards each and page 3 twelve; page 4 is the scrolling list.
@@ -28,6 +29,16 @@ RealmCardSlot GetRealmCardSlot(std::size_t order)
     if (order < 24)
         return { 3, uint32(order - 11) };
     return { 4, uint32(order - 23) };
+}
+
+// RealmCards.<id>.* keys are absent from the config file unless a realm overrides its card, so a missing one is
+// not logged.
+RealmCardStyle GetRealmCardStyle(uint32 realmId, RealmCardStyle const& globalStyle)
+{
+    std::string const prefix = Acore::StringFormat("RealmCards.{}.", realmId);
+    return { sConfigMgr->GetOption<uint32>(prefix + "Expansion", globalStyle.Expansion, false),
+        sConfigMgr->GetOption<uint32>(prefix + "GameMode", globalStyle.GameMode, false),
+        sConfigMgr->GetOption<std::string>(prefix + "Image", globalStyle.Image, false) };
 }
 
 std::string BuildRealmCardName(std::string const& realmName, RealmCardStyle const& style, RealmCardSlot slot)

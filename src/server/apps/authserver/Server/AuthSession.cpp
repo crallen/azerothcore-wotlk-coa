@@ -876,19 +876,17 @@ void AuthSession::RealmListCallback(PreparedQueryResult result)
 
     if (_expversion & POST_BC_EXP_FLAG && sConfigMgr->GetOption<bool>("RealmCards.Enable", true))
     {
-        RealmCardStyle const style{ sConfigMgr->GetOption<uint32>("RealmCards.Expansion", 2),
+        RealmCardStyle const globalStyle{ sConfigMgr->GetOption<uint32>("RealmCards.Expansion", 2),
             sConfigMgr->GetOption<uint32>("RealmCards.GameMode", 11),
             sConfigMgr->GetOption<std::string>("RealmCards.Image", "Default") };
         uint8 const category = uint8(sConfigMgr->GetOption<uint32>("RealmCards.Category", 41));
         for (std::size_t order = 0; order < listedRealms.size(); ++order)
         {
-            RealmCardStyle realmStyle = style;
-            realmStyle.GameMode = sConfigMgr->GetOption<uint32>(
-                "RealmCards.Realm." + std::to_string(listedRealms[order].first) + ".GameMode", style.GameMode, false);
+            auto const& [realmId, realmName] = listedRealms[order];
             pkt << uint8(REALM_TYPE_NORMAL);
             pkt << uint8(0);
             pkt << uint8(REALM_FLAG_OFFLINE);
-            pkt << BuildRealmCardName(listedRealms[order].second, realmStyle, GetRealmCardSlot(order));
+            pkt << BuildRealmCardName(realmName, GetRealmCardStyle(realmId, globalStyle), GetRealmCardSlot(order));
             pkt << "0.0.0.0:0";
             pkt << float(0);
             pkt << uint8(0);

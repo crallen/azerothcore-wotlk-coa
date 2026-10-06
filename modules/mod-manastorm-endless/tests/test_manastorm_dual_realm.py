@@ -43,6 +43,12 @@ std::string BuildRealmCardName(std::string const& name,RealmCardStyle const& sty
     cards.emplace_back(name,style.GameMode); return name;
 }
 std::size_t GetRealmCardSlot(std::size_t order) {return order;}
+RealmCardStyle GetRealmCardStyle(uint32 realmId,RealmCardStyle const& globalStyle) {
+    std::string const prefix="RealmCards."+std::to_string(realmId)+".";
+    return {config.GetOption<uint32>(prefix+"Expansion",globalStyle.Expansion,false),
+        config.GetOption<uint32>(prefix+"GameMode",globalStyle.GameMode,false),
+        config.GetOption<std::string>(prefix+"Image",globalStyle.Image,false)};
+}
 struct Packet {template<class T> Packet& operator<<(T const&) {return *this;}};
 void render(std::vector<std::pair<uint32,std::string>> const& listedRealms) {
     uint32 _expversion=1,RealmListSize=0;
@@ -51,7 +57,7 @@ void render(std::vector<std::pair<uint32,std::string>> const& listedRealms) {
     assert(RealmListSize==listedRealms.size());
 }
 int main() {
-    config.values["RealmCards.Realm.2.GameMode"]="6";
+    config.values["RealmCards.2.GameMode"]="6";
     render({{7,"Other CoA"},{2,"Wildcard"},{1,"CoA"}});
     assert(cards.size()==3);
     assert(cards[0].second==11 && cards[1].second==6 && cards[2].second==11);
