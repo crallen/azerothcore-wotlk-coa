@@ -28,7 +28,13 @@ namespace Realms
         uint32 Pairs = 0;
         uint32 CorrectionExclusions = 0;
         uint32 CorrectionsMirrored = 0;
+        // Gaps in a copy's client data filled from its namesake (FillGaps).
         uint32 ProcFlagsMirrored = 0;
+        uint32 ProcChancesMirrored = 0;
+        uint32 ProcChargesMirrored = 0;
+        uint32 ClassMasksMirrored = 0;
+        uint32 FamilyFlagsMirrored = 0;
+        uint32 TriggersMirrored = 0;
     };
 
     using SpellInfoLookup = std::function<SpellInfo*(uint32 spellId)>;
