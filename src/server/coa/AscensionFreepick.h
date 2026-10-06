@@ -26,6 +26,8 @@ struct UploadResult
 Realm ReadRealm();
 void Initialize();
 Catalog const& LoadedCatalog();
+Build PlayerBuild(Player const* player);
+std::uint32_t ClearBuild(Player* player);
 bool RealmIsClassless();
 bool RealmOffersMysticAltars();
 bool IsFreepickHero(Player const* player);
