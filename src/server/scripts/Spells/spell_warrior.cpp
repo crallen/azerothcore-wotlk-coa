@@ -1032,7 +1032,7 @@ class spell_warr_heroic_strike : public SpellScript
                 break;
             }
 
-            if ((spellInfo->Id == SPELL_GENERIC_AFTERMATH)
+            if ((spellInfo->StockId() == SPELL_GENERIC_AFTERMATH) // wow-realms: copy binding
                 || (spellInfo->SpellFamilyName == SPELLFAMILY_MAGE && (spellInfo->SpellFamilyFlags[1] & 0x40)) // Blast Wave
                 || (spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN && (spellInfo->SpellFamilyFlags[2] & 0x4000)) // Avenger's Shield
             )
