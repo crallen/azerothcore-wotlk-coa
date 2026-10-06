@@ -17,8 +17,6 @@ class Unit;
 
 namespace Realms
 {
-    constexpr uint32 CopyIdOffset = 1100000;
-
     struct PairRow
     {
         uint32 Copy;
@@ -32,7 +30,6 @@ namespace Realms
     };
 
     using SpellInfoLookup = std::function<SpellInfo*(uint32 spellId)>;
-    using TemplateExists = bool (*)(uint32 entry);
 
     void LoadBinding();
     BindingCounts Bind(std::vector<PairRow> const& pairs, std::vector<uint32> const& correctionExclusions,
@@ -45,8 +42,6 @@ namespace Realms
     uint32 StockId(uint32 id);
     uint32 ForCaster(Unit const* caster, uint32 id);
     uint32 ForPlayer(Player const* player, uint32 id);
-    uint32 CreatureEntry(uint32 entry);
-    uint32 CreatureEntry(uint32 entry, TemplateExists templateExists);
     bool CorrectionExcluded(uint32 copy);
 }
 
