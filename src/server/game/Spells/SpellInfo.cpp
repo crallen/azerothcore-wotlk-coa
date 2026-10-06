@@ -1880,14 +1880,14 @@ bool SpellInfo::ValidateAttribute6SpellDamageMods(Unit const* caster, AuraEffect
 
     // Xinef we have a hook to decide which auras should profit to the spell, by default no profits
     // Xinef: Scourge Strike - Trigger
-    if (Id == 70890 && auraEffect)
+    if (StockId() == 70890 && auraEffect) // wow-realms: copy binding
     {
         SpellInfo const* auraInfo = auraEffect->GetSpellInfo();
         return auraInfo->SpellIconID == 3086 ||
                (auraInfo->SpellFamilyName == SPELLFAMILY_DEATHKNIGHT && (auraInfo->SpellFamilyFlags & flag96(8388608, 64, 16) || auraInfo->SpellIconID == 235 || auraInfo->SpellIconID == 154));
     }
     // Xinef: Necrosis, no profits for done and taken
-    else if (Id == 51460)
+    else if (StockId() == 51460) // wow-realms: copy binding
         return false;
 
     // Xinef: Do not affect dots and auras obtained from items, only affected by self casted auras
@@ -2412,7 +2412,7 @@ SpellSpecificType SpellInfo::LoadSpellSpecific() const
                     return SPELL_SPECIFIC_HAND;
 
                 // Judgement of Wisdom, Judgement of Light, Judgement of Justice
-                if (Id == 20184 || Id == 20185 || Id == 20186)
+                if (StockId() == 20184 || StockId() == 20185 || StockId() == 20186) // wow-realms: copy binding
                     return SPELL_SPECIFIC_JUDGEMENT;
 
                 // only paladin auras have this (for palaldin class family)
@@ -2420,7 +2420,7 @@ SpellSpecificType SpellInfo::LoadSpellSpecific() const
                     return SPELL_SPECIFIC_AURA;
 
                 // Illidari Council Paladin (Gathios the Shatterer)
-                if (Id == 41459 || Id == 41469)
+                if (StockId() == 41459 || StockId() == 41469) // wow-realms: copy binding
                     return SPELL_SPECIFIC_SEAL;
 
                 break;
@@ -2430,13 +2430,13 @@ SpellSpecificType SpellInfo::LoadSpellSpecific() const
                 // family flags 10 (Lightning), 42 (Earth), 37 (Water), proc shield from T2 8 pieces bonus
                 if (SpellFamilyFlags[1] & 0x420
                         || (SpellFamilyFlags[0] & 0x00000400 && HasAttribute(SPELL_ATTR1_NO_THREAT))
-                        || Id == 23552)
+                        || StockId() == 23552) // wow-realms: copy binding
                     return SPELL_SPECIFIC_ELEMENTAL_SHIELD;
 
                 break;
             }
         case SPELLFAMILY_DEATHKNIGHT:
-            if (Id == 48266 || Id == 48263 || Id == 48265)
+            if (StockId() == 48266 || StockId() == 48263 || StockId() == 48265) // wow-realms: copy binding
                 return SPELL_SPECIFIC_PRESENCE;
             break;
     }
@@ -2660,7 +2660,7 @@ void SpellInfo::_LoadImmunityInfo()
             }
             case SPELL_AURA_MECHANIC_IMMUNITY:
             {
-                switch (Id)
+                switch (StockId()) // wow-realms: copy binding
                 {
                     case 34471: // The Beast Within
                     case 19574: // Bestial Wrath

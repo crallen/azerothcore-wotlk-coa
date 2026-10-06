@@ -1102,7 +1102,8 @@ class spell_pal_lay_on_hands : public SpellScript
             caster->CastSpell(caster, SPELL_PALADIN_IMMUNE_SHIELD_MARKER, true);
         }
         // Xinef: Glyph of Divinity
-        else if (target && caster->HasAura(54939) && GetSpellInfo()->Id != 633 && _manaAmount > 0) // excluding first rank
+        // wow-realms: copy binding
+        else if (target && caster->HasAura(54939) && GetSpellInfo()->StockId() != 633 && _manaAmount > 0) // excluding first rank
         {
             _manaAmount = target->GetPower(POWER_MANA) - _manaAmount;
             if (_manaAmount > 0)
@@ -1922,7 +1923,7 @@ class spell_pal_seal_of_vengeance_aura : public AuraScript
     bool Load() override
     {
         // Seal of Vengeance = 31801, Seal of Corruption = 53736
-        _isVengeance = GetSpellInfo()->Id == 31801;
+        _isVengeance = GetSpellInfo()->StockId() == 31801; // wow-realms: copy binding
         return true;
     }
 

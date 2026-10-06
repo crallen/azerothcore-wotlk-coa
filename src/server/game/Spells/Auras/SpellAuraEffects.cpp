@@ -580,7 +580,7 @@ int32 AuraEffect::CalculateAmount(Unit* caster)
             // Titan's Grip
             if (!caster)
                 break;
-            if (GetId() == 49152 && caster->ToPlayer())
+            if (GetSpellInfo()->StockId() == 49152 && caster->ToPlayer()) // wow-realms: copy binding
             {
                 Item* item1 = caster->ToPlayer()->GetWeaponForAttack(BASE_ATTACK);
                 Item* item2 = caster->ToPlayer()->GetWeaponForAttack(OFF_ATTACK);
@@ -1642,7 +1642,7 @@ void AuraEffect::HandleShapeshiftBoosts(Unit* target, bool apply) const
                     if (AuraEffect const* aurEff = target->GetAuraEffect(SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT, SPELLFAMILY_DRUID, 2254, 0))
                     {
                         uint32 spellId3 = 0;
-                        switch (aurEff->GetId())
+                        switch (aurEff->GetSpellInfo()->StockId()) // wow-realms: copy binding
                         {
                             case 33872:
                                 spellId3 = 47179;
@@ -2965,7 +2965,8 @@ void AuraEffect::HandleAuraTransform(AuraApplication const* aurApp, uint8 mode, 
                     target->SetDisplayId(model_id);
 
                     // Dragonmaw Illusion (set mount model also)
-                    if (GetId() == 42016 && target->GetMountID() && !target->GetAuraEffectsByType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED).empty())
+                    // wow-realms: copy binding
+                    if (GetSpellInfo()->StockId() == 42016 && target->GetMountID() && !target->GetAuraEffectsByType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED).empty())
                         target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 16314);
                 }
             }
@@ -2998,7 +2999,7 @@ void AuraEffect::HandleAuraTransform(AuraApplication const* aurApp, uint8 mode, 
         target->RestoreDisplayId();
 
         // Dragonmaw Illusion (restore mount model)
-        if (GetId() == 42016 && target->GetMountID() == 16314)
+        if (GetSpellInfo()->StockId() == 42016 && target->GetMountID() == 16314) // wow-realms: copy binding
         {
             if (!target->GetAuraEffectsByType(SPELL_AURA_MOUNTED).empty())
             {
@@ -5390,7 +5391,7 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
         // AT APPLY
         if (apply)
         {
-            switch (GetId())
+            switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
             {
                 case 1515:                                      // Tame beast
                     // FIX_ME: this is 2.0.12 threat effect replaced in 2.1.x by dummy aura, must be checked for correctness
@@ -5440,6 +5441,8 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                     }
                 case 55198:   // Tidal Force
                     {
+                        if (GetId() != 55198) // wow-realms: copy binding
+                            break;
                         target->CastSpell(target, 55166, true);
                         if (Aura* owner_aura = target->GetAura(55166))
                             owner_aura->SetStackAmount(owner_aura->GetSpellInfo()->StackAmount);
@@ -6161,7 +6164,7 @@ void AuraEffect::HandlePeriodicDummyAuraTick(Unit* target, Unit* caster) const
                         caster->CastCustomSpell(53352, SPELLVALUE_BASE_POINT0, m_amount, target, true, nullptr, this);
                     break;
                 }
-                switch (GetSpellInfo()->Id)
+                switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
                 {
                     // Feeding Frenzy Rank 1
                     case 53511:
@@ -6179,7 +6182,7 @@ void AuraEffect::HandlePeriodicDummyAuraTick(Unit* target, Unit* caster) const
                 break;
             }
         case SPELLFAMILY_DEATHKNIGHT:
-            switch (GetId())
+            switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
             {
                 case 49016: // Hysteria
                     uint32 damage = uint32(target->CountPctFromMaxHealth(1));

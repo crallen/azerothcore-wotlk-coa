@@ -129,7 +129,7 @@ class spell_dru_bear_form_passive : public AuraScript
         }
 
         int32 mod = 0;
-        switch (GetId())
+        switch (GetSpellInfo()->StockId()) // wow-realms: copy binding
         {
             case SPELL_DRUID_BEAR_FORM_PASSIVE:
                 mod = -48;
@@ -1864,7 +1864,7 @@ class spell_dru_t10_restoration_4p_bonus_dummy : public AuraScript
     bool CheckProc(ProcEventInfo& eventInfo)
     {
         SpellInfo const* spellInfo = eventInfo.GetSpellInfo();
-        if (!spellInfo || spellInfo->Id == SPELL_DRUID_REJUVENATION_T10_PROC)
+        if (!spellInfo || spellInfo->StockId() == SPELL_DRUID_REJUVENATION_T10_PROC) // wow-realms: copy binding
             return false;
 
         HealInfo* healInfo = eventInfo.GetHealInfo();

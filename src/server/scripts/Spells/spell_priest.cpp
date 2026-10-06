@@ -698,7 +698,8 @@ class spell_pri_power_word_shield_aura : public AuraScript
             {
                 int32 bp = CalculatePct(absorbAmount, talentAurEff->GetAmount());
                 // xinef: prevents infinite loop!
-                if (!dmgInfo.GetSpellInfo() || dmgInfo.GetSpellInfo()->Id != SPELL_PRIEST_REFLECTIVE_SHIELD_TRIGGERED)
+                // wow-realms: copy binding
+                if (!dmgInfo.GetSpellInfo() || dmgInfo.GetSpellInfo()->StockId() != SPELL_PRIEST_REFLECTIVE_SHIELD_TRIGGERED)
                     target->CastCustomSpell(dmgInfo.GetAttacker(), SPELL_PRIEST_REFLECTIVE_SHIELD_TRIGGERED, &bp, nullptr, nullptr, true, nullptr, aurEff);
             }
     }
@@ -1099,7 +1100,7 @@ class spell_pri_body_and_soul : public AuraScript
             return false;
 
         SpellInfo const* spellInfo = eventInfo.GetSpellInfo();
-        return spellInfo && spellInfo->Id == 552;
+        return spellInfo && spellInfo->StockId() == 552; // wow-realms: copy binding
     }
 
     void HandleProcDummy(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
@@ -1214,7 +1215,7 @@ class spell_pri_improved_spirit_tap : public AuraScript
             if (spellInfo->IsRankOf(sSpellMgr->AssertSpellInfo(SPELL_PRIEST_SHADOW_WORD_DEATH_R1)) ||
                 spellInfo->IsRankOf(sSpellMgr->AssertSpellInfo(SPELL_PRIEST_MIND_BLAST_R1)))
                 return true;
-            else if (spellInfo->Id == SPELL_PRIEST_MIND_FLAY_DAMAGE)
+            else if (spellInfo->StockId() == SPELL_PRIEST_MIND_FLAY_DAMAGE) // wow-realms: copy binding
                 return roll_chance_i(50);
         }
 

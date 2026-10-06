@@ -730,7 +730,7 @@ class spell_sha_earthliving_weapon : public AuraScript
 
         if (SpellInfo const* spellInfo = eventInfo.GetSpellInfo())
         {
-            if (spellInfo->Id == SPELL_SHAMAN_EARTH_SHIELD_HEAL)
+            if (spellInfo->StockId() == SPELL_SHAMAN_EARTH_SHIELD_HEAL) // wow-realms: copy binding
             {
                 return false;
             }
@@ -2029,7 +2029,7 @@ class spell_sha_t8_elemental_4p_bonus : public AuraScript
         // Do not proc from Lightning Overload (patch 3.1~)
         if (SpellInfo const* spellInfo = eventInfo.GetSpellInfo())
         {
-            if (spellInfo->Id == SPELL_SHAMAN_LIGHTNING_BOLT_OVERLOAD)
+            if (spellInfo->StockId() == SPELL_SHAMAN_LIGHTNING_BOLT_OVERLOAD) // wow-realms: copy binding
                 return;
         }
 

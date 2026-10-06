@@ -2890,7 +2890,7 @@ void Unit::CalcAbsorbResist(DamageInfo& dmgInfo, bool Splited)
             splitDamage = RoundToInterval(splitDamage, uint32(0), uint32(dmgInfo.GetDamage()));
 
             // Roar of Sacrifice, dont absorb it
-            if (splitSpellInfo->Id != 53480)
+            if (splitSpellInfo->StockId() != 53480) // wow-realms: copy binding
                 dmgInfo.AbsorbDamage(splitDamage);
             else
                 splitSchoolMask = SPELL_SCHOOL_MASK_NATURE;
@@ -4686,7 +4686,7 @@ void Unit::SetCurrentCastedSpell(Spell* pSpell)
                 if (m_currentSpells[CURRENT_AUTOREPEAT_SPELL])
                 {
                     // break autorepeat if not Auto Shot
-                    if (m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo->Id != 75)
+                    if (m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo->StockId() != 75) // wow-realms: copy binding
                         InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
                     m_AutoRepeatFirstCast = true;
                 }
@@ -4716,7 +4716,7 @@ void Unit::SetCurrentCastedSpell(Spell* pSpell)
 
                 // it also does break autorepeat if not Auto Shot
                 if (m_currentSpells[CURRENT_AUTOREPEAT_SPELL] &&
-                        m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo->Id != 75)
+                        m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo->StockId() != 75) // wow-realms: copy binding
                     InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
 
                 AddUnitState(UNIT_STATE_CASTING);
@@ -4726,7 +4726,7 @@ void Unit::SetCurrentCastedSpell(Spell* pSpell)
         case CURRENT_AUTOREPEAT_SPELL:
             {
                 // only Auto Shoot does not break anything
-                if (pSpell->m_spellInfo->Id != 75)
+                if (pSpell->m_spellInfo->StockId() != 75) // wow-realms: copy binding
                 {
                     // generic autorepeats break generic non-delayed and channeled non-delayed spells
                     if (Spell* s = GetCurrentSpell(CURRENT_CHANNELED_SPELL))
@@ -9450,7 +9450,7 @@ float Unit::SpellPctDamageModsDone(Unit* victim, SpellInfo const* spellProto, Da
                 uint32 stacks = 0;
                 Unit::AuraEffectList const& auras = victim->GetAuraEffectsByType(SPELL_AURA_PERIODIC_DAMAGE);
                 for (Unit::AuraEffectList::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
-                    if (((*itr)->GetId() == 31803 || (*itr)->GetId() == 53742) && (*itr)->GetCasterGUID() == GetGUID())
+                    if (((*itr)->GetSpellInfo()->StockId() == 31803 || (*itr)->GetSpellInfo()->StockId() == 53742) && (*itr)->GetCasterGUID() == GetGUID()) // wow-realms: copy binding
                     {
                         stacks = (*itr)->GetBase()->GetStackAmount();
                         break;
@@ -10522,7 +10522,7 @@ float Unit::SpellPctHealingModsDone(Unit* victim, SpellInfo const* spellProto, D
     {
         case SPELLFAMILY_GENERIC:
             // Talents and glyphs for healing stream totem
-            if (spellProto->Id == 52042)
+            if (spellProto->StockId() == 52042) // wow-realms: copy binding
             {
                 // Glyph of Healing Stream Totem
                 if (AuraEffect* dummy = owner->GetAuraEffect(55456, EFFECT_0))
@@ -10535,7 +10535,7 @@ float Unit::SpellPctHealingModsDone(Unit* victim, SpellInfo const* spellProto, D
             break;
         case SPELLFAMILY_PRIEST:
             // T9 HEALING 4P, empowered renew instant heal
-            if (spellProto->Id == 63544)
+            if (spellProto->StockId() == 63544) // wow-realms: copy binding
                 if (AuraEffect* aurEff = GetAuraEffect(67202, EFFECT_0))
                     AddPct(DoneTotalMod, aurEff->GetAmount());
             break;
@@ -18535,7 +18535,7 @@ void Unit::Whisper(uint32 textId, Player* target, bool isBossWhisper /*= false*/
 bool Unit::CanRestoreMana(SpellInfo const* spellInfo) const
 {
     // Aura of Despair exceptions
-    switch (spellInfo->Id)
+    switch (spellInfo->StockId()) // wow-realms: copy binding
     {
         case 16666: // Demonic Rune
         case 27869: // Dark Rune

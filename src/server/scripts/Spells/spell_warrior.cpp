@@ -973,7 +973,7 @@ class spell_warr_heroic_strike : public SpellScript
                 break;
             }
 
-            if ((spellInfo->Id == SPELL_GENERIC_AFTERMATH)
+            if ((spellInfo->StockId() == SPELL_GENERIC_AFTERMATH) // wow-realms: copy binding
                 || (spellInfo->SpellFamilyName == SPELLFAMILY_MAGE && (spellInfo->SpellFamilyFlags[1] & 0x40)) // Blast Wave
                 || (spellInfo->SpellFamilyName == SPELLFAMILY_PALADIN && (spellInfo->SpellFamilyFlags[2] & 0x4000)) // Avenger's Shield
             )
@@ -1005,7 +1005,8 @@ class spell_war_sudden_death_aura : public AuraScript
         if (eventInfo.GetSpellPhaseMask() != PROC_SPELL_PHASE_FINISH)
             return isTriggeredAtSpellProcEvent;
         if (Spell const* procSpell = eventInfo.GetProcSpell())
-            if (procSpell->GetSpellInfo()->GetFirstRankSpell()->Id == SPELL_WARRIOR_EXECUTE_R1)
+            // wow-realms: copy binding
+            if (procSpell->GetSpellInfo()->GetFirstRankSpell()->StockId() == SPELL_WARRIOR_EXECUTE_R1)
                 return isTriggeredAtSpellProcEvent;
         return false;
     }

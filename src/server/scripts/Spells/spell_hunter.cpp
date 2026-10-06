@@ -693,9 +693,9 @@ class spell_hun_readiness : public SpellScript
             SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
             if (spellInfo
             && spellInfo->SpellFamilyName == SPELLFAMILY_HUNTER
-            && spellInfo->Id != SPELL_HUNTER_READINESS
-            && spellInfo->Id != SPELL_HUNTER_BESTIAL_WRATH
-            && spellInfo->Id != SPELL_DRAENEI_GIFT_OF_THE_NAARU)
+            && spellInfo->StockId() != SPELL_HUNTER_READINESS // wow-realms: copy binding
+            && spellInfo->StockId() != SPELL_HUNTER_BESTIAL_WRATH // wow-realms: copy binding
+            && spellInfo->StockId() != SPELL_DRAENEI_GIFT_OF_THE_NAARU) // wow-realms: copy binding
             {
                 if (spellInfo->RecoveryTime > 0)
                     spellsToRemove.insert(std::make_pair(spellInfo->Id, cooldown.needSendToClient));

@@ -2328,7 +2328,8 @@ void Spell::prepareDataForTriggerSystem(AuraEffect const* /*triggeredByAura*/)
     // Hunter trap spells - activation proc for Lock and Load, Entrapment and Misdirection
     if (m_spellInfo->SpellFamilyName == SPELLFAMILY_HUNTER &&
             (m_spellInfo->SpellFamilyFlags[0] & 0x18 ||              // Freezing and Frost Trap, Freezing Arrow
-             m_spellInfo->Id == 57879 ||                               // Snake Trap - done this way to avoid double proc
+             // wow-realms: copy binding
+             m_spellInfo->StockId() == 57879 ||                               // Snake Trap - done this way to avoid double proc
              m_spellInfo->SpellFamilyFlags[2] & 0x00024000))          // Explosive and Immolation Trap
     {
         m_procAttacker |= PROC_FLAG_DONE_TRAP_ACTIVATION;
@@ -3110,7 +3111,8 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
                 return SPELL_MISS_EVADE;
         }
 
-        if (m_caster->_IsValidAttackTarget(unit, m_spellInfo) && /*Intervene Trigger*/ m_spellInfo->Id != 59667)
+        // wow-realms: copy binding
+        if (m_caster->_IsValidAttackTarget(unit, m_spellInfo) && /*Intervene Trigger*/ m_spellInfo->StockId() != 59667)
         {
             unit->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_HITBYSPELL);
         }
@@ -3567,7 +3569,8 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
     //Prevent casting at cast another spell (ServerSide check)
     if (!HasTriggeredCastFlag(TRIGGERED_IGNORE_CAST_IN_PROGRESS) &&
         !m_caster->CanCastDuringChannel(m_spellInfo) &&
-        m_caster->IsNonMeleeSpellCast(false, true, true, m_spellInfo->Id == 75) && m_cast_count)
+        // wow-realms: copy binding
+        m_caster->IsNonMeleeSpellCast(false, true, true, m_spellInfo->StockId() == 75) && m_cast_count)
     {
         SendCastResult(SPELL_FAILED_SPELL_IN_PROGRESS);
         finish(false);
@@ -3727,8 +3730,10 @@ SpellCastResult Spell::prepare(SpellCastTargets const* targets, AuraEffect const
                 exceptSpellId = m_spellInfo->Id;
             }
 
-            m_caster->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_CAST, exceptSpellId, m_spellInfo->Id == 75, m_spellInfo);
-            m_caster->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_SPELL_ATTACK, exceptSpellId, m_spellInfo->Id == 75, m_spellInfo);
+            // wow-realms: copy binding
+            m_caster->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_CAST, exceptSpellId, m_spellInfo->StockId() == 75, m_spellInfo);
+            // wow-realms: copy binding
+            m_caster->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_SPELL_ATTACK, exceptSpellId, m_spellInfo->StockId() == 75, m_spellInfo);
         }
 
         m_caster->SetCurrentCastedSpell(this);
@@ -6347,7 +6352,7 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
                     if (m_caster->HasUnitState(UNIT_STATE_ROOT))
                     {
                         // Exception for Master's Call
-                        if (m_spellInfo->Id != 54216)
+                        if (m_spellInfo->StockId() != 54216) // wow-realms: copy binding
                         {
                             return SPELL_FAILED_ROOTED;
                         }
@@ -6445,7 +6450,7 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
                             return SPELL_FAILED_ALREADY_OPEN;
                         }
                     }
-                    if (m_spellInfo->Id != 1842 || (m_targets.GetGOTarget() &&
+                    if (m_spellInfo->StockId() != 1842 || (m_targets.GetGOTarget() && // wow-realms: copy binding
                                                     m_targets.GetGOTarget()->GetGOInfo()->type != GAMEOBJECT_TYPE_TRAP))
                     {
                         if (m_targets.GetGOTarget() && m_targets.GetGOTarget()->GetEntry() == 179697)
@@ -7019,7 +7024,8 @@ SpellCastResult Spell::CheckCasterAuras(bool preventionOnly) const
         }
         // immune movement impairment and loss of control
         //         PVP trinket                   Ascension PVP trinket            EMFH                   TOC PVP trinket               Bullheaded                  Bestial Wrath             // Beath Within         // Medalion of Immunity
-        if (m_spellInfo->Id == 42292 || m_spellInfo->Id == 1142292 || m_spellInfo->Id == 59752 || m_spellInfo->Id == 65547 || m_spellInfo->Id == 53490 || m_spellInfo->Id == 19574 || m_spellInfo->Id == 34471 || m_spellInfo->Id == 46227)
+        // wow-realms: copy binding
+        if (sSpellMgr->GetSpellTwinSource(m_spellInfo->Id) == 42292 || m_spellInfo->Id == 1142292 || sSpellMgr->GetSpellTwinSource(m_spellInfo->Id) == 59752 || m_spellInfo->Id == 65547 || sSpellMgr->GetSpellTwinSource(m_spellInfo->Id) == 53490 || sSpellMgr->GetSpellTwinSource(m_spellInfo->Id) == 19574 || sSpellMgr->GetSpellTwinSource(m_spellInfo->Id) == 34471 || m_spellInfo->Id == 46227)
             mechanic_immune = IMMUNE_TO_MOVEMENT_IMPAIRMENT_AND_LOSS_CONTROL_MASK;
     }
 
@@ -7027,7 +7033,7 @@ SpellCastResult Spell::CheckCasterAuras(bool preventionOnly) const
 
     // Glyph of Pain Suppression
     // there is no other way to handle it
-    if (m_spellInfo->Id == 33206 && !m_caster->HasAura(63248))
+    if (m_spellInfo->StockId() == 33206 && !m_caster->HasAura(63248)) // wow-realms: copy binding
         usableInStun = false;
 
     // Check whether the cast should be prevented by any state you might have.
@@ -7046,10 +7052,10 @@ SpellCastResult Spell::CheckCasterAuras(bool preventionOnly) const
                 bool foundNotStun = false;
                 uint64 mask = (1ULL << MECHANIC_STUN) | (1ULL << MECHANIC_FREEZE) | (1ULL << MECHANIC_HORROR);
                 // Barkskin should skip sleep effects, sap and fears
-                if (m_spellInfo->Id == 22812)
+                if (m_spellInfo->StockId() == 22812) // wow-realms: copy binding
                     mask |= 1ULL << MECHANIC_SAPPED | 1ULL << MECHANIC_HORROR | 1ULL << MECHANIC_SLEEP;
                 // Hand of Freedom, can be used while sapped and while under fear-mechanic stuns (e.g. Intimidating Shout primary target)
-                if (m_spellInfo->Id == 1044)
+                if (m_spellInfo->StockId() == 1044) // wow-realms: copy binding
                     mask |= (1ULL << MECHANIC_SAPPED) | (1ULL << MECHANIC_FEAR);
                 Unit::AuraEffectList const& stunAuras = m_caster->GetAuraEffectsByType(SPELL_AURA_MOD_STUN);
                 for (Unit::AuraEffectList::const_iterator i = stunAuras.begin(); i != stunAuras.end(); ++i)
@@ -7111,10 +7117,10 @@ SpellCastResult Spell::CheckCasterAuras(bool preventionOnly) const
                                 {
                                     uint64 mask = 1ULL << MECHANIC_STUN;
                                     // Barkskin should skip sleep effects, sap and fears
-                                    if (m_spellInfo->Id == 22812)
+                                    if (m_spellInfo->StockId() == 22812) // wow-realms: copy binding
                                         mask |= 1ULL << MECHANIC_SAPPED | 1ULL << MECHANIC_HORROR | 1ULL << MECHANIC_SLEEP;
                                     // Hand of Freedom, can be used while sapped and while under fear-mechanic stuns (e.g. Intimidating Shout primary target)
-                                    if (m_spellInfo->Id == 1044)
+                                    if (m_spellInfo->StockId() == 1044) // wow-realms: copy binding
                                         mask |= (1ULL << MECHANIC_SAPPED) | (1ULL << MECHANIC_FEAR);
 
                                     if (!usableInStun || !(auraInfo->GetAllEffectsMechanicMask() & mask))
@@ -9064,7 +9070,8 @@ void Spell::PrepareTriggersExecutedOnHit()
         case SPELLFAMILY_DRUID:
             {
                 // Faerie Fire (Feral)
-                if (m_spellInfo->Id == 16857 && (m_caster->GetShapeshiftForm() == FORM_BEAR || m_caster->GetShapeshiftForm() == FORM_DIREBEAR))
+                // wow-realms: copy binding
+                if (m_spellInfo->StockId() == 16857 && (m_caster->GetShapeshiftForm() == FORM_BEAR || m_caster->GetShapeshiftForm() == FORM_DIREBEAR))
                     m_preCastSpell = 60089;
 
                 break;

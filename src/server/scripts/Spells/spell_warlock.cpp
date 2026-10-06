@@ -149,7 +149,8 @@ class spell_warl_shadowflame : public SpellScript
     void HandleSchoolDMG(SpellEffIndex /*effIndex*/)
     {
         if (Unit* target = GetHitUnit())
-            GetCaster()->CastSpell(target, (GetSpellInfo()->Id == 47897 ? 47960 : 61291), true);
+            // wow-realms: copy binding
+            GetCaster()->CastSpell(target, (GetSpellInfo()->StockId() == 47897 ? 47960 : 61291), true);
     }
 
     void Register() override
