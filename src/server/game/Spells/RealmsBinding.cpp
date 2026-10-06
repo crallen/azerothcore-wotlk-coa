@@ -7,7 +7,6 @@
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "Log.h"
-#include "ObjectMgr.h"
 #include "Player.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
@@ -33,11 +32,6 @@ namespace
         if (id >= partners.size() || (flags[id] & BINDING_COPY))
             return 0;
         return partners[id];
-    }
-
-    bool HasCreatureTemplate(uint32 entry)
-    {
-        return sObjectMgr->GetCreatureTemplate(entry) != nullptr;
     }
 
     bool PairTablesExist()
@@ -172,18 +166,6 @@ namespace Realms
         if (!copy || !player || !IsStockClass(player->getClass()))
             return id;
         return copy;
-    }
-
-    uint32 CreatureEntry(uint32 entry)
-    {
-        return CreatureEntry(entry, HasCreatureTemplate);
-    }
-
-    uint32 CreatureEntry(uint32 entry, TemplateExists templateExists)
-    {
-        if (!Enabled() || entry < CopyIdOffset || templateExists(entry) || !templateExists(entry - CopyIdOffset))
-            return entry;
-        return entry - CopyIdOffset;
     }
 
     bool CorrectionExcluded(uint32 copy)
