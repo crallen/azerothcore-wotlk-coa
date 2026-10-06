@@ -4,11 +4,15 @@
 #define REALMS_ADVANCEMENT_H
 
 #include "AscensionFreepickRules.h"
+#include "AscensionWarcraftRebornRules.h"
 #include "Define.h"
 #include "RealmsLegacyTalents.h"
 #include <array>
+#include <functional>
 #include <map>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 namespace Realms
 {
@@ -32,12 +36,33 @@ std::map<uint8, uint32> PointsPerTab(AscensionFreepick::Build const& build, Tree
 std::uint32_t SpendBudget(AscensionFreepick::Build& build, TreeTabIds const& tabs, uint8 treeIndex,
     AscensionFreepick::UnitCheck const& unit);
 
+struct LineAbility
+{
+    std::uint32_t Line = 0;
+    std::uint32_t AcquireMethod = 0;
+};
+
+using SkillLineLookup = std::function<std::vector<LineAbility>(std::uint32_t spellId)>;
+
+struct StartingKit
+{
+    std::unordered_set<std::uint32_t> Lines;
+    std::unordered_set<std::uint32_t> CreateSpells;
+    std::unordered_set<std::uint32_t> TrainerSpells;
+};
+
+StartingKit KitFrom(AscensionWarcraftReborn::Data const& data, AscensionFreepick::Realm const& realm, uint8 classId,
+    uint32 startLevel, uint32 level, std::unordered_set<uint32> trainerSpells);
+std::vector<std::uint32_t> SpellsToForget(std::vector<std::uint32_t> const& known, StartingKit const& kit,
+    SkillLineLookup const& lineAbilities);
+
 TreeTabIds TreeTabs(uint8 classId);
 std::map<uint8, uint32> PointsPerTab(Player const* player);
 // SpendBudget on the player's stored build, applied as an upload; an over-budget stored build is cleared through
 // ClearBuild (its spells removed) before the fresh build is uploaded. Returns the TE spent, 0 when no rank fit or
 // the upload was refused.
 uint32 SpendTalentBudget(Player* player, uint8 treeIndex);
+uint32 ForgetToStartingKit(Player* player, uint8 levelAfter);
 }
 
 #endif
