@@ -77,6 +77,7 @@
 #include "PoolMgr.h"
 #include "RaceMgr.h"
 #include "Realm.h"
+#include "RealmsBinding.h"
 #include "ScriptMgr.h"
 #include "ServerMailMgr.h"
 #include "SkillDiscovery.h"
@@ -405,6 +406,7 @@ void World::SetInitialWorldSettings()
 
     LOG_INFO("server.loading", "Loading SpellInfo Store...");
     sSpellMgr->LoadSpellInfoStore();
+    Realms::LoadBinding(); // wow-realms: copy binding, before the corrections mirror onto copies
 
     LOG_INFO("server.loading", "Loading Spell Cooldown Overrides...");
     sSpellMgr->LoadSpellCooldownOverrides();
