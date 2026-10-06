@@ -45,6 +45,7 @@
 #include "Pet.h"
 #include "Player.h"
 #include "RBAC.h"
+#include "RealmsBinding.h"
 #include "ReputationMgr.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
@@ -3100,6 +3101,7 @@ void Spell::EffectLearnSpell(SpellEffIndex effIndex)
     Player* player = unitTarget->ToPlayer();
 
     uint32 spellToLearn = (m_spellInfo->Id == 483 || m_spellInfo->Id == 55884) ? damage : m_spellInfo->Effects[effIndex].TriggerSpell;
+    spellToLearn = Realms::ForPlayer(player, spellToLearn); // wow-realms: copy binding
     player->learnSpell(spellToLearn);
 
     LOG_DEBUG("spells.aura", "Spell: Player {} has learned spell {} from Npc {}",
