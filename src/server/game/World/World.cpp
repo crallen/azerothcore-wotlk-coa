@@ -415,6 +415,7 @@ void World::SetInitialWorldSettings()
 
     LOG_INFO("server.loading", "Loading SpellInfo Data Corrections...");
     sSpellMgr->LoadSpellInfoCorrections();
+    Realms::ReportBinding(); // wow-realms: copy binding, the self-report once corrections are mirrored
 
     LOG_INFO("server.loading", "Loading Spell Rank Data...");
     sSpellMgr->LoadSpellRanks();

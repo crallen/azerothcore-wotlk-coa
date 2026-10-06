@@ -10,6 +10,8 @@
 #include "Player.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include <algorithm>
+#include <string>
 
 namespace
 {
@@ -21,6 +23,8 @@ namespace
 
     std::vector<uint32> partners;
     std::vector<uint32> flags;
+    Realms::BindingCounts bound;
+    Realms::SpellInfoLookup boundSpellInfo;
 
     bool IsStockClass(uint8 classId)
     {
@@ -32,6 +36,58 @@ namespace
         if (id >= partners.size() || (flags[id] & BINDING_COPY))
             return 0;
         return partners[id];
+    }
+
+    using FieldValues = std::vector<std::pair<std::string, uint64>>;
+
+    FieldValues CorrectedFields(SpellInfo const& spell)
+    {
+        FieldValues fields = {
+            { "Attributes", spell.Attributes }, { "AttributesEx", spell.AttributesEx },
+            { "AttributesEx2", spell.AttributesEx2 }, { "AttributesEx3", spell.AttributesEx3 },
+            { "AttributesEx4", spell.AttributesEx4 }, { "AttributesEx5", spell.AttributesEx5 },
+            { "AttributesEx6", spell.AttributesEx6 }, { "AttributesEx7", spell.AttributesEx7 },
+            { "Mechanic", spell.Mechanic }, { "Dispel", spell.Dispel }, { "Stances", spell.Stances },
+            { "ProcFlags", spell.ProcFlags }, { "ProcChance", spell.ProcChance }, { "ProcCharges", spell.ProcCharges },
+            { "DurationEntry", uint64(reinterpret_cast<uintptr_t>(spell.DurationEntry)) },
+            { "RangeEntry", uint64(reinterpret_cast<uintptr_t>(spell.RangeEntry)) },
+            { "SchoolMask", spell.SchoolMask },
+            { "SpellFamilyFlags[0]", spell.SpellFamilyFlags[0] }, { "SpellFamilyFlags[1]", spell.SpellFamilyFlags[1] },
+            { "SpellFamilyFlags[2]", spell.SpellFamilyFlags[2] },
+            { "InterruptFlags", spell.InterruptFlags }, { "AuraInterruptFlags", spell.AuraInterruptFlags }
+        };
+        for (SpellEffectInfo const& effect : spell.GetEffects())
+        {
+            std::string const prefix = "Effects[" + std::to_string(effect.EffectIndex) + "].";
+            fields.emplace_back(prefix + "Effect", effect.Effect);
+            fields.emplace_back(prefix + "ApplyAuraName", effect.ApplyAuraName);
+            fields.emplace_back(prefix + "BasePoints", uint32(effect.BasePoints));
+            fields.emplace_back(prefix + "MiscValue", uint32(effect.MiscValue));
+            fields.emplace_back(prefix + "MiscValueB", uint32(effect.MiscValueB));
+            fields.emplace_back(prefix + "TriggerSpell", effect.TriggerSpell);
+            fields.emplace_back(prefix + "TargetA", effect.TargetA.GetTarget());
+            fields.emplace_back(prefix + "TargetB", effect.TargetB.GetTarget());
+            fields.emplace_back(prefix + "RadiusEntry", uint64(reinterpret_cast<uintptr_t>(effect.RadiusEntry)));
+            fields.emplace_back(prefix + "Amplitude", effect.Amplitude);
+            for (uint8 part = 0; part < 3; ++part)
+                fields.emplace_back(prefix + "SpellClassMask[" + std::to_string(part) + "]",
+                    effect.SpellClassMask[part]);
+        }
+        return fields;
+    }
+
+    std::string ChangedFields(FieldValues const& before, FieldValues const& after)
+    {
+        std::string changed;
+        for (std::size_t index = 0; index < before.size(); ++index)
+        {
+            if (before[index].second == after[index].second)
+                continue;
+            if (!changed.empty())
+                changed += ", ";
+            changed += before[index].first;
+        }
+        return changed;
     }
 
     bool PairTablesExist()
@@ -78,10 +134,8 @@ namespace Realms
             } while (result->NextRow());
         }
 
-        BindingCounts const counts = Bind(pairs, exclusions, sSpellMgr->GetSpellInfoStoreSize(),
+        Bind(pairs, exclusions, sSpellMgr->GetSpellInfoStoreSize(),
             [](uint32 spellId) { return const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)); });
-        LOG_INFO("coa", "Realms copy-binding: {} pairs, {} correction exclusions", counts.Pairs,
-            counts.CorrectionExclusions);
     }
 
     BindingCounts Bind(std::vector<PairRow> const& pairs, std::vector<uint32> const& correctionExclusions,
@@ -128,7 +182,13 @@ namespace Realms
         }
 
         if (!counts.Pairs)
+        {
             ClearBinding();
+            return counts;
+        }
+
+        bound = counts;
+        boundSpellInfo = spellInfo;
         return counts;
     }
 
@@ -136,6 +196,40 @@ namespace Realms
     {
         partners.clear();
         flags.clear();
+        bound = {};
+        boundSpellInfo = nullptr;
+    }
+
+    void MirrorCorrection(uint32 spellId, SpellFix fix, std::vector<SpellInfo*> const& corrected)
+    {
+        uint32 const copyId = CopyOfNamesake(spellId);
+        if (!copyId || CorrectionExcluded(copyId))
+            return;
+
+        SpellInfo* copy = boundSpellInfo(copyId);
+        if (std::find(corrected.begin(), corrected.end(), copy) != corrected.end())
+            return;
+
+        ++bound.CorrectionsMirrored;
+        if (!sLog->ShouldLog("realms.corrections", LOG_LEVEL_INFO))
+        {
+            fix(copy);
+            return;
+        }
+
+        FieldValues const before = CorrectedFields(*copy);
+        fix(copy);
+        std::string const changed = ChangedFields(before, CorrectedFields(*copy));
+        if (!changed.empty())
+            LOG_INFO("realms.corrections", "{} <- {}: {}", copyId, spellId, changed);
+    }
+
+    BindingCounts ReportBinding()
+    {
+        if (Enabled())
+            LOG_INFO("coa", "Realms copy-binding: {} pairs, {} correction exclusions, {} corrections mirrored",
+                bound.Pairs, bound.CorrectionExclusions, bound.CorrectionsMirrored);
+        return bound;
     }
 
     bool Enabled()
