@@ -134,4 +134,106 @@ TEST_F(RealmsAdvancementTest, SelfReportCountsStockRowsAndBudgetedStockClasses)
     EXPECT_EQ(Realms::StockCatalogRows(catalog), 3u);
     EXPECT_EQ(Realms::BudgetedStockClasses(catalog), 1u);
 }
+
+TEST_F(RealmsAdvancementTest, TreeTabsFollowTheTalentPagesByName)
+{
+    Realms::TreeTabMatch const hunter = Realms::MatchTreeTabs(
+        { { 2, "Survival" }, { 3, "Marksmanship" }, { 4, "BeastMastery" } },
+        { "Beast Mastery", "Marksmanship", "Survival" });
+    EXPECT_TRUE(hunter.ByName);
+    EXPECT_EQ(hunter.Tabs, (Realms::TreeTabIds{ 4, 3, 2 }));
+}
+
+TEST_F(RealmsAdvancementTest, TreeTabsGiveAMisspelledPageTheTabNoOtherPageTook)
+{
+    Realms::TreeTabMatch const rogue = Realms::MatchTreeTabs(
+        { { 8, "Combat" }, { 9, "Subtlety" }, { 10, "Assassination" } }, { "Assassination", "Combat", "Subtley" });
+    EXPECT_FALSE(rogue.ByName);
+    EXPECT_EQ(rogue.Tabs, (Realms::TreeTabIds{ 10, 8, 9 }));
+}
+
+class RealmsTalentPickerTest : public RealmsAdvancementTest
+{
+protected:
+    static constexpr std::uint32_t ARMS = 6;
+    static constexpr std::uint32_t PROTECTION = 7;
+    static constexpr std::uint32_t TACTICS = 500;
+    static constexpr std::uint32_t MORTAL_STRIKE = 501;
+    static constexpr std::uint32_t ANGER = 502;
+    static constexpr std::uint32_t SHIELD_WALL = 600;
+
+    void SetUp() override
+    {
+        RealmsAdvancementTest::SetUp();
+        Add(TalentRow(TACTICS, REBORN_WARRIOR, ARMS, 2, 10));
+        Row mortalStrike = TalentRow(MORTAL_STRIKE, REBORN_WARRIOR, ARMS, 3, 10);
+        mortalStrike.Required[0] = ANGER;
+        Add(mortalStrike);
+        Add(TalentRow(ANGER, REBORN_WARRIOR, ARMS, 1, 11));
+        Add(TalentRow(SHIELD_WALL, REBORN_WARRIOR, PROTECTION, 5, 10));
+    }
+
+    Realms::TreeTabIds const tabs{ ARMS, FURY, PROTECTION };
+};
+
+TEST_F(RealmsTalentPickerTest, SpendsExactlyTheBudgetTopDownAtMaxRank)
+{
+    Build build(catalog, reborn, 12, {}, WARRIOR);
+    EXPECT_EQ(Realms::SpendBudget(build, tabs, 0, nullptr), 3u);
+    EXPECT_EQ(build.RankOf(TACTICS), 2u);
+    EXPECT_EQ(build.RankOf(ANGER), 1u);
+    EXPECT_EQ(build.RankOf(MORTAL_STRIKE), 0u);
+    EXPECT_EQ(build.RemainingTE(), 0u);
+}
+
+TEST_F(RealmsTalentPickerTest, TakesARowOnceItsRequiredEntryIsKnown)
+{
+    Build build(catalog, reborn, 15, {}, WARRIOR);
+    EXPECT_EQ(Realms::SpendBudget(build, tabs, 0, nullptr), 6u);
+    EXPECT_EQ(build.RankOf(MORTAL_STRIKE), 3u);
+    EXPECT_EQ(Realms::PointsPerTab(build, tabs), (std::map<uint8, uint32>{ { 0, 6 }, { 1, 0 }, { 2, 0 } }));
+}
+
+TEST_F(RealmsTalentPickerTest, SpillsIntoTheOtherTreesInTabOrderOnceTheChosenOneIsExhausted)
+{
+    Build build(catalog, reborn, 20, {}, WARRIOR);
+    EXPECT_EQ(Realms::SpendBudget(build, tabs, 0, nullptr), 11u);
+    EXPECT_EQ(Realms::PointsPerTab(build, tabs), (std::map<uint8, uint32>{ { 0, 6 }, { 1, 5 }, { 2, 0 } }));
+}
+
+TEST_F(RealmsTalentPickerTest, TakesARowOnceTheEntryItConnectsToIsKnown)
+{
+    constexpr std::uint32_t BLOOD_CRAZE = 450;
+    Row bloodCraze = TalentRow(BLOOD_CRAZE, REBORN_WARRIOR, ARMS, 1, 10);
+    bloodCraze.Connected[0] = ANGER;
+    Add(bloodCraze);
+    Build build(catalog, reborn, 13, {}, WARRIOR);
+    EXPECT_EQ(build.ValidateLearn(BLOOD_CRAZE, nullptr), std::uint32_t(LEARN_MISSING_CONNECTED_ENTRIES));
+    EXPECT_EQ(Realms::SpendBudget(build, tabs, 0, nullptr), 4u);
+    EXPECT_EQ(build.RankOf(ANGER), 1u);
+    EXPECT_EQ(build.RankOf(BLOOD_CRAZE), 1u);
+}
+
+TEST_F(RealmsTalentPickerTest, TakesARowOnceItsTreeHoldsTheTEItRequires)
+{
+    constexpr std::uint32_t DEEP_WOUNDS = 400;
+    Row deepWounds = TalentRow(DEEP_WOUNDS, REBORN_WARRIOR, ARMS, 1, 10);
+    deepWounds.TabTEInvestment = 3;
+    Add(deepWounds);
+    Build build(catalog, reborn, 13, {}, WARRIOR);
+    EXPECT_EQ(build.ValidateLearn(DEEP_WOUNDS, nullptr), std::uint32_t(LEARN_NOT_ENOUGH_INVESTED_TE));
+    EXPECT_EQ(Realms::SpendBudget(build, tabs, 0, nullptr), 4u);
+    EXPECT_EQ(build.RankOf(DEEP_WOUNDS), 1u);
+    EXPECT_EQ(Realms::PointsPerTab(build, tabs), (std::map<uint8, uint32>{ { 0, 4 }, { 1, 0 }, { 2, 0 } }));
+}
+
+TEST_F(RealmsTalentPickerTest, ReplacesABuildOverItsBudgetAndSpendsTheWholeBudget)
+{
+    Build build(catalog, reborn, 12, { { SHIELD_WALL, 5 } }, WARRIOR);
+    EXPECT_EQ(Realms::SpendBudget(build, tabs, 0, nullptr), 3u);
+    EXPECT_EQ(build.RankOf(SHIELD_WALL), 0u);
+    EXPECT_EQ(build.RankOf(TACTICS), 2u);
+    EXPECT_EQ(build.RankOf(ANGER), 1u);
+    EXPECT_EQ(build.GlobalTE(0), build.TEBudget());
+}
 }
