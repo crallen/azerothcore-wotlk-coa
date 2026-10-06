@@ -28,6 +28,7 @@ namespace Realms
         uint32 Pairs = 0;
         uint32 CorrectionExclusions = 0;
         uint32 CorrectionsMirrored = 0;
+        uint32 ProcFlagsMirrored = 0;
     };
 
     using SpellInfoLookup = std::function<SpellInfo*(uint32 spellId)>;
