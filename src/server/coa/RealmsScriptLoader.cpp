@@ -4,8 +4,10 @@
 // files, never the tail of CoAScriptLoader.cpp.
 
 void AddSC_RealmsPoisonTheWorld();
+void AddSC_RealmsAdvancement();
 
 void AddRealmsScripts()
 {
     AddSC_RealmsPoisonTheWorld();
+    AddSC_RealmsAdvancement();
 }
