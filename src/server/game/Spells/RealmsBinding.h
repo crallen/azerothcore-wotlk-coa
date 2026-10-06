@@ -27,14 +27,18 @@ namespace Realms
     {
         uint32 Pairs = 0;
         uint32 CorrectionExclusions = 0;
+        uint32 CorrectionsMirrored = 0;
     };
 
     using SpellInfoLookup = std::function<SpellInfo*(uint32 spellId)>;
+    using SpellFix = void (*)(SpellInfo* spellInfo);
 
     void LoadBinding();
     BindingCounts Bind(std::vector<PairRow> const& pairs, std::vector<uint32> const& correctionExclusions,
         uint32 spellStoreSize, SpellInfoLookup const& spellInfo);
     void ClearBinding();
+    void MirrorCorrection(uint32 spellId, SpellFix fix, std::vector<SpellInfo*> const& corrected);
+    BindingCounts ReportBinding();
 
     bool Enabled();
     uint32 Partner(uint32 id);

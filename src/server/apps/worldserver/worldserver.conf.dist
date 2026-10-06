@@ -701,6 +701,8 @@ Appender.Server=2,5,0,Server.log,w
 Appender.Playerbots=2,5,0,Playerbots.log,w
 # Appender.GM=2,5,15,gm_%s.log
 Appender.Errors=2,2,0,Errors.log,w
+# wow-realms: copy binding, the spell corrections mirrored onto Warcraft Reborn copies.
+Appender.RealmsCorrections=2,4,0,RealmsCorrections.log,w
 # Appender.DB=3,5,0
 # Appender.Dev=2,5,0,Dev.log,a
 
@@ -734,6 +736,8 @@ Logger.module=4,Console Server
 Logger.coa=4,Console Server
 Logger.spells.scripts=2,Console Errors
 Logger.playerbots=5,Console Playerbots
+# wow-realms: copy binding, off unless a realm sets it to 4 (AC_LOGGER_REALMS_CORRECTIONS).
+Logger.realms.corrections=0,RealmsCorrections
 # Logger.achievement=4,Console Server
 # Logger.addon=4,Console Server
 # Logger.auctionHouse=4,Console Server
