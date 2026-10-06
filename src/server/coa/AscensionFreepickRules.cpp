@@ -652,6 +652,15 @@ ApplyCheck CheckApply(Build const& base, std::vector<Entry> const& upload, UnitC
     return check;
 }
 
+ApplyCheck CheckPurge(Build const& base, UnitCheck const& unit, Purse const& purse)
+{
+    std::vector<Entry> retained;
+    for (Entry const& entry : base.Entries())
+        if (Row const* row = base.Data().Find(entry.EntryId); row && (row->Group == 1 || row->Has(ROW_RETAINED)))
+            retained.push_back(entry);
+    return CheckApply(base, retained, unit, purse);
+}
+
 std::vector<std::uint32_t> TaughtSpells(std::uint32_t spellId, LearnedSpells const& learned)
 {
     std::vector<std::uint32_t> spells;

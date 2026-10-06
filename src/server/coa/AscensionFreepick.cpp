@@ -234,6 +234,31 @@ void SyncSpells(Player* player, std::vector<Entry> const& before, std::vector<En
     if (keepActionBars)
         RemoveFromActionBars(player, removed);
 }
+
+Build PlayerBuild(Player const* player)
+{
+    return Build(Loaded, CurrentRealm, player->GetLevel(), StoredEntries(player), player->getClass());
+}
+
+Purse PurseOf(Player const* player)
+{
+    return { player->GetMoney(), player->GetItemCount(MARK_OF_ASCENSION_ITEM, false) };
+}
+
+void Commit(Player* player, Build const& base, ApplyCheck const& check, UnitCheck const& unit)
+{
+    Build next(base);
+    next.SetEntries(check.Entries);
+    next.AutoLearn(unit);
+    if (check.Marks)
+        player->DestroyItemCount(MARK_OF_ASCENSION_ITEM, check.Marks, true);
+    if (check.Money)
+        player->ModifyMoney(-int32(check.Money));
+    Store(player, next.Entries());
+    SyncSpells(player, base.Entries(), next.Entries());
+    LOG_INFO("coa", "Applied free-pick build of {}: {} entries, {} AE and {} TE spent, charged {} copper and {} marks",
+        player->GetName(), next.Entries().size(), next.GlobalAE(0), next.GlobalTE(0), check.Money, check.Marks);
+}
 }
 
 bool RealmIsClassless()
@@ -277,10 +302,9 @@ UploadResult ApplyUpload(Player* player, std::vector<AscensionCoATalentState::Kn
     for (AscensionCoATalentState::KnownEntry const& entry : upload)
         wanted.push_back({ entry.EntryId, entry.Rank });
 
-    Build const base(Loaded, CurrentRealm, player->GetLevel(), StoredEntries(player), player->getClass());
+    Build const base = PlayerBuild(player);
     UnitCheck const unit = UnitRules(player);
-    ApplyCheck const check = CheckApply(base, wanted, unit,
-        { player->GetMoney(), player->GetItemCount(MARK_OF_ASCENSION_ITEM, false) });
+    ApplyCheck const check = CheckApply(base, wanted, unit, PurseOf(player));
     if (check.Result != UPDATE_OK)
     {
         LOG_INFO("coa", "Refused free-pick upload of {} record(s) from {}: {} {} entry {} rank {}", upload.size(),
@@ -289,19 +313,21 @@ UploadResult ApplyUpload(Player* player, std::vector<AscensionCoATalentState::Kn
         return { UPDATE_RESULTS[check.Result], check.Learn ? LEARN_RESULTS[check.Learn] : "", check.Failed.EntryId,
             check.Failed.Rank };
     }
-
-    Build next(base);
-    next.SetEntries(check.Entries);
-    next.AutoLearn(unit);
-    if (check.Marks)
-        player->DestroyItemCount(MARK_OF_ASCENSION_ITEM, check.Marks, true);
-    if (check.Money)
-        player->ModifyMoney(-int32(check.Money));
-    Store(player, next.Entries());
-    SyncSpells(player, base.Entries(), next.Entries());
-    LOG_INFO("coa", "Applied free-pick build of {}: {} entries, {} AE and {} TE spent, charged {} copper and {} marks",
-        player->GetName(), next.Entries().size(), next.GlobalAE(0), next.GlobalTE(0), check.Money, check.Marks);
+    Commit(player, base, check, unit);
     return {};
+}
+
+char const* Purge(Player* player)
+{
+    Build const base = PlayerBuild(player);
+    UnitCheck const unit = UnitRules(player);
+    ApplyCheck const check = CheckPurge(base, unit, PurseOf(player));
+    if (check.Result == UPDATE_BAD_UPDATE_COSTS)
+        return "CA_PURGE_TALENTS_NO_PURGE_ITEM";
+    if (check.Result != UPDATE_OK)
+        return "CA_PURGE_TALENTS_NO_KNOWN_TALENTS";
+    Commit(player, base, check, unit);
+    return "CA_PURGE_TALENTS_OK";
 }
 
 std::uint32_t ActiveSpecialization(Player const* player)

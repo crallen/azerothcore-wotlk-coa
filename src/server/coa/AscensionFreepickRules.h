@@ -248,6 +248,7 @@ struct ApplyCheck
 };
 
 ApplyCheck CheckApply(Build const& base, std::vector<Entry> const& upload, UnitCheck const& unit, Purse const& purse);
+ApplyCheck CheckPurge(Build const& base, UnitCheck const& unit, Purse const& purse);
 
 using LearnedSpells = std::function<std::vector<std::uint32_t>(std::uint32_t spellId)>;
 
