@@ -50,6 +50,10 @@ constexpr std::uint32_t PATH_OF_AGILITY = 1150;
 constexpr std::uint32_t BLOOD_GORGED_RANK_5 = 61158;
 constexpr std::uint32_t WILL_OF_THE_NECROPOLIS_RANK_3 = 50150;
 constexpr std::uint32_t PURIFY_SPELL = 1152;
+constexpr std::uint32_t IMPROVED_HEROIC_STRIKE = 12228;
+constexpr std::uint32_t WARRIOR = 1;
+constexpr std::uint32_t DEATH_KNIGHT = 6;
+constexpr std::uint32_t DRUID = 11;
 
 bool Holds(std::vector<Entry> const& entries, std::uint32_t id, std::uint32_t rank)
 {
@@ -188,6 +192,28 @@ int main(int, char** argv)
         "a rank with a learn effect beside other effects grants only the taught spell");
     Check(TaughtSpells(PURIFY_SPELL, learned) == std::vector<std::uint32_t>({ PURIFY_SPELL }),
         "a rank with no learn effect grants itself");
+
+    Realm reborn;
+    reborn.Live = true;
+    reborn.WarcraftReborn = true;
+    Check(Build(catalog, reborn, 20, {}, WARRIOR).TEBudget() == 11 &&
+            Build(catalog, reborn, 20, {}, WARRIOR).AEBudget() == 20,
+        "a level 20 Warrior on Warcraft Reborn has 11 TE, its level minus 9, and 20 AE");
+    Row const* heroicStrike = catalog.Find(IMPROVED_HEROIC_STRIKE);
+    Check(heroicStrike && Visible(catalog, reborn, *heroicStrike),
+        "a Reborn Warrior talent is offered on Warcraft Reborn");
+    Check(!Visible(catalog, reborn, *purify), "a Hero entry is hidden on Warcraft Reborn");
+    std::size_t stockTalents = 0;
+    for (auto const& [id, row] : catalog.Rows)
+    {
+        auto const type = catalog.ClassTypes.find(row.ClassType);
+        std::uint32_t const classId = type == catalog.ClassTypes.end() ? 0 : type->second.Class;
+        bool const stockClass = classId >= WARRIOR && classId <= DRUID && classId != HERO_CLASS &&
+            classId != DEATH_KNIGHT;
+        stockTalents += (row.Type == ENTRY_TALENT || row.Type == ENTRY_TALENT_ABILITY) && stockClass &&
+            Visible(catalog, reborn, row);
+    }
+    Check(stockTalents == 761, "Warcraft Reborn offers the nine stock classes 761 talent entries");
 
     return failures ? 1 : 0;
 }
