@@ -27,7 +27,7 @@ class DualRealmTests(unittest.TestCase):
 using uint8=std::uint8_t;
 using uint32=std::uint32_t;
 constexpr uint32 POST_BC_EXP_FLAG=1, REALM_TYPE_NORMAL=0, REALM_FLAG_OFFLINE=2;
-struct RealmCardStyle {uint32 Expansion,GameMode; std::string Image;};
+struct RealmCardStyle {uint32 Expansion,GameMode; std::string Image; uint32 DescriptionSpell;};
 struct Config {
     std::map<std::string,std::string> values;
     template<class T> T GetOption(std::string const& key,T fallback,bool=true) {
@@ -43,6 +43,13 @@ std::string BuildRealmCardName(std::string const& name,RealmCardStyle const& sty
     cards.emplace_back(name,style.GameMode); return name;
 }
 std::size_t GetRealmCardSlot(std::size_t order) {return order;}
+RealmCardStyle GetRealmCardStyle(uint32 realmId,RealmCardStyle const& globalStyle) {
+    std::string const prefix="RealmCards."+std::to_string(realmId)+".";
+    return {config.GetOption<uint32>(prefix+"Expansion",globalStyle.Expansion,false),
+        config.GetOption<uint32>(prefix+"GameMode",globalStyle.GameMode,false),
+        config.GetOption<std::string>(prefix+"Image",globalStyle.Image,false),
+        config.GetOption<uint32>(prefix+"DescriptionSpell",globalStyle.DescriptionSpell,false)};
+}
 struct Packet {template<class T> Packet& operator<<(T const&) {return *this;}};
 void render(std::vector<std::pair<uint32,std::string>> const& listedRealms) {
     uint32 _expversion=1,RealmListSize=0;
@@ -51,7 +58,7 @@ void render(std::vector<std::pair<uint32,std::string>> const& listedRealms) {
     assert(RealmListSize==listedRealms.size());
 }
 int main() {
-    config.values["RealmCards.Realm.2.GameMode"]="6";
+    config.values["RealmCards.2.GameMode"]="6";
     render({{7,"Other CoA"},{2,"Wildcard"},{1,"CoA"}});
     assert(cards.size()==3);
     assert(cards[0].second==11 && cards[1].second==6 && cards[2].second==11);
