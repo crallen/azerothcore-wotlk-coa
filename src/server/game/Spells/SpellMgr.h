@@ -774,6 +774,13 @@ public:
         return spellInfo;
     }
     [[nodiscard]] uint32 GetSpellInfoStoreSize() const { return mSpellInfoMap.size(); }
+    // wow-realms: copy binding, lets the gtests store a SpellInfo; UnloadSpellInfoStore deletes it.
+    void AddSpellInfoForTest(uint32 spellId, SpellInfo* spellInfo)
+    {
+        if (spellId >= mSpellInfoMap.size())
+            mSpellInfoMap.resize(spellId + 1, nullptr);
+        mSpellInfoMap[spellId] = spellInfo;
+    }
 
     // Talent Additional Set
     [[nodiscard]] bool IsAdditionalTalentSpell(uint32 spellId) const;

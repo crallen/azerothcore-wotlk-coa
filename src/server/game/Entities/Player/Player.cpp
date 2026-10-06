@@ -72,6 +72,7 @@
 #include "QuestDef.h"
 #include "RBAC.h"
 #include "Realm.h"
+#include "RealmsBinding.h"
 #include "ReputationMgr.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
@@ -3881,6 +3882,7 @@ bool Player::Has310Flyer(bool checkAllSpells, uint32 excludeSpellId)
 
 void Player::RemoveSpellCooldown(uint32 spell_id, bool update /* = false */)
 {
+    spell_id = Realms::ForPlayer(this, spell_id); // wow-realms: copy binding
     m_spellCooldowns.erase(spell_id);
 
     if (update)
@@ -11674,6 +11676,9 @@ void Player::AddSpellAndCategoryCooldowns(SpellInfo const* spellInfo, uint32 ite
                     continue;
                 }
 
+                if (Realms::ForPlayer(this, i_scset->second) == spellInfo->Id) // wow-realms: copy binding, the cast copy's namesake
+                    continue;
+
                 // If spell category is applied by item, then other spells should be exists in item templates
                 if ((itemId > 0) != i_scset->first)
                 {
@@ -11722,6 +11727,7 @@ void Player::AddSpellAndCategoryCooldowns(SpellInfo const* spellInfo, uint32 ite
 
 void Player::_AddSpellCooldown(uint32 spellid, uint16 categoryId, uint32 itemid, uint32 end_time, bool needSendToClient, bool forceSendToSpectator)
 {
+    spellid = Realms::ForPlayer(this, spellid); // wow-realms: copy binding
     SpellCooldown sc;
     sc.end = GameTime::GetGameTimeMS().count() + end_time;
     sc.category = categoryId;
@@ -11749,6 +11755,7 @@ void Player::AddSpellCooldown(uint32 spellid, uint32 itemid, uint32 end_time, bo
 
 void Player::ModifySpellCooldown(uint32 spellId, int32 cooldown)
 {
+    spellId = Realms::ForPlayer(this, spellId); // wow-realms: copy binding
     SpellCooldowns::iterator itr = m_spellCooldowns.find(spellId);
     if (itr == m_spellCooldowns.end())
         return;
@@ -17342,6 +17349,7 @@ bool Player::IsSummonAsSpectator() const
 
 bool Player::HasSpellCooldown(uint32 spell_id) const
 {
+    spell_id = Realms::ForPlayer(this, spell_id); // wow-realms: copy binding
     if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spell_id))
         if (spellInfo->MaxCharges && GetSpellCharges(spellInfo).Available == 0)
             return true;
@@ -17352,12 +17360,14 @@ bool Player::HasSpellCooldown(uint32 spell_id) const
 
 bool Player::HasSpellItemCooldown(uint32 spell_id, uint32 itemid) const
 {
+    spell_id = Realms::ForPlayer(this, spell_id); // wow-realms: copy binding
     SpellCooldowns::const_iterator itr = m_spellCooldowns.find(spell_id);
     return itr != m_spellCooldowns.end() && itr->second.end > getMSTime() && itr->second.itemid == itemid;
 }
 
 uint32 Player::GetSpellCooldownDelay(uint32 spell_id) const
 {
+    spell_id = Realms::ForPlayer(this, spell_id); // wow-realms: copy binding
     uint32 chargeDelay = 0;
     if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spell_id))
     {
