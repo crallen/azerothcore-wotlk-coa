@@ -682,7 +682,8 @@ class spell_dk_dancing_rune_weapon : public AuraScript
             return true;
 
         // Death Coil exception, Check if spell is from spellbook
-        if (spellInfo->Id != SPELL_DK_DEATH_COIL_DAMAGE && !eventInfo.GetActor()->ToPlayer()->HasActiveSpell(spellInfo->Id))
+        // wow-realms: copy binding
+        if (spellInfo->StockId() != SPELL_DK_DEATH_COIL_DAMAGE && !eventInfo.GetActor()->ToPlayer()->HasActiveSpell(spellInfo->Id))
             return false;
 
         // Can't cast raise dead/ally, death grip, dark command, death pact, death and decay, anti-magic shell
@@ -2006,7 +2007,7 @@ class spell_dk_presence : public AuraScript
     {
         Unit* target = GetTarget();
 
-        if (GetId() == SPELL_DK_BLOOD_PRESENCE)
+        if (GetSpellInfo()->StockId() == SPELL_DK_BLOOD_PRESENCE) // wow-realms: copy binding
             target->CastSpell(target, SPELL_DK_IMPROVED_BLOOD_PRESENCE_TRIGGERED, true);
         else if (AuraEffect const* impAurEff = target->GetAuraEffectOfRankedSpell(SPELL_DK_IMPROVED_BLOOD_PRESENCE_R1, EFFECT_0))
             if (!target->HasAura(SPELL_DK_IMPROVED_BLOOD_PRESENCE_TRIGGERED))
@@ -2017,7 +2018,7 @@ class spell_dk_presence : public AuraScript
     {
         Unit* target = GetTarget();
 
-        if (GetId() == SPELL_DK_FROST_PRESENCE)
+        if (GetSpellInfo()->StockId() == SPELL_DK_FROST_PRESENCE) // wow-realms: copy binding
             target->CastSpell(target, SPELL_DK_FROST_PRESENCE_BONUS_EFFECTS, true);
         else if (AuraEffect const* impAurEff = target->GetAuraEffectOfRankedSpell(SPELL_DK_IMPROVED_FROST_PRESENCE_R1, EFFECT_0))
             if (!target->HasAura(SPELL_DK_FROST_PRESENCE_TRIGGERED))
@@ -2028,12 +2029,12 @@ class spell_dk_presence : public AuraScript
     {
         Unit* target = GetTarget();
 
-        if (GetId() == SPELL_DK_UNHOLY_PRESENCE)
+        if (GetSpellInfo()->StockId() == SPELL_DK_UNHOLY_PRESENCE) // wow-realms: copy binding
             target->CastSpell(target, SPELL_DK_UNHOLY_PRESENCE_TRIGGERED, true);
 
         if (AuraEffect const* impAurEff = target->GetAuraEffectOfRankedSpell(SPELL_DK_IMPROVED_UNHOLY_PRESENCE_R1, EFFECT_0))
         {
-            if (GetId() == SPELL_DK_UNHOLY_PRESENCE)
+            if (GetSpellInfo()->StockId() == SPELL_DK_UNHOLY_PRESENCE) // wow-realms: copy binding
             {
                 // Not listed as any effect, only base points set
                 int32 bp = impAurEff->GetSpellInfo()->Effects[EFFECT_1].CalcValue();
