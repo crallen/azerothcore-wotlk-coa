@@ -2292,7 +2292,8 @@ public:
         continue;
       }
       WorldPacket result(SMSG_CHARACTER_ADVANCEMENT_PURGE_TALENTS_RESULT, 40);
-      result << PurgeTalents(player);
+      result << (AscensionFreepick::IsRebornCharacter(player) ? AscensionFreepick::Purge(player) :
+        PurgeTalents(player));
       SendCharacterAdvancementKnownEntries(player);
       player->SendDirectMessage(&result);
     }
