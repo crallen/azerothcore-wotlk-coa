@@ -228,6 +228,8 @@ bool Visible(Catalog const& catalog, Realm const& realm, Row const& row)
     auto const type = catalog.ClassTypes.find(row.ClassType);
     if (type == catalog.ClassTypes.end())
         return false;
+    if (realm.WarcraftReborn && !type->second.Stock)
+        return false;
     bool const heroRealm = realm.Development || !(realm.ConquestOfAzeroth || realm.WarcraftReborn);
     if (type->second.Hero != heroRealm && type->second.ConquestOfAzeroth != realm.ConquestOfAzeroth &&
         type->second.Stock != realm.WarcraftReborn)
