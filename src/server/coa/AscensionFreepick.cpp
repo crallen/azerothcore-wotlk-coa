@@ -213,7 +213,7 @@ void ClearActionBars(Player* player)
         player->removeActionButton(button);
 }
 
-void SyncSpells(Player* player, std::vector<Entry> const& before, std::vector<Entry> const& after,
+std::uint32_t SyncSpells(Player* player, std::vector<Entry> const& before, std::vector<Entry> const& after,
     bool keepActionBars = true)
 {
     std::unordered_set<uint32> const granted = GrantedSpells(after);
@@ -233,11 +233,7 @@ void SyncSpells(Player* player, std::vector<Entry> const& before, std::vector<En
             player->learnSpell(spellId);
     if (keepActionBars)
         RemoveFromActionBars(player, removed);
-}
-
-Build PlayerBuild(Player const* player)
-{
-    return Build(Loaded, CurrentRealm, player->GetLevel(), StoredEntries(player), player->getClass());
+    return std::uint32_t(removed.size());
 }
 
 Purse PurseOf(Player const* player)
@@ -277,6 +273,18 @@ void Initialize()
 Catalog const& LoadedCatalog()
 {
     return Loaded;
+}
+
+Build PlayerBuild(Player const* player)
+{
+    return Build(Loaded, CurrentRealm, player->GetLevel(), StoredEntries(player), player->getClass());
+}
+
+std::uint32_t ClearBuild(Player* player)
+{
+    std::vector<Entry> const stored = StoredEntries(player);
+    Store(player, {});
+    return SyncSpells(player, stored, {});
 }
 
 bool RealmIsClassless()
