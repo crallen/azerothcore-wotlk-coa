@@ -147,6 +147,7 @@ CharacterDatabase.SynchThreads = 1
 #
 #    Updates.EnableDatabases
 #        Description: A mask that describes which databases shall be updated.
+#                     Only these databases are opened, so the others need no DatabaseInfo.
 #
 #        Following flags are available
 #           DATABASE_LOGIN     = 1, // Auth database
