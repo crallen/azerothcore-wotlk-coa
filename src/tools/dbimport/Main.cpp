@@ -40,6 +40,8 @@
 using namespace boost::program_options;
 namespace fs = std::filesystem;
 
+static uint32 updatedDatabases = DatabaseLoader::DATABASE_NONE;
+
 bool StartDB();
 void StopDB();
 variables_map GetConsoleArguments(int argc, char** argv, fs::path& configFile);
@@ -118,15 +120,18 @@ bool StartDB()
     // DatabaseLoader keeps a view of this list, so it must outlive the loader.
     std::string const updateModules =
         COA_DATABASE_MODULE_LIST + (modules == "all" ? std::string(AC_MODULES_LIST) : modules);
-    DatabaseLoader loader = modules.empty() ?
-        DatabaseLoader("dbimport", DatabaseLoader::DATABASE_LOGIN | DatabaseLoader::DATABASE_CHARACTER |
-            DatabaseLoader::DATABASE_WORLD, updateModules) :
-        DatabaseLoader("dbimport", DatabaseLoader::DATABASE_MASK_ALL, updateModules);
+    uint32 const defaultUpdateMask = modules.empty() ?
+        DatabaseLoader::DATABASE_LOGIN | DatabaseLoader::DATABASE_CHARACTER | DatabaseLoader::DATABASE_WORLD :
+        uint32(DatabaseLoader::DATABASE_MASK_ALL);
+    DatabaseLoader loader("dbimport", defaultUpdateMask, updateModules);
 
-    loader
-        .AddDatabase(LoginDatabase, "Login")
-        .AddDatabase(CharacterDatabase, "Character")
-        .AddDatabase(WorldDatabase, "World");
+    updatedDatabases = sConfigMgr->GetOption<uint32>("Updates.EnableDatabases", defaultUpdateMask, false);
+    if (updatedDatabases & DatabaseLoader::DATABASE_LOGIN)
+        loader.AddDatabase(LoginDatabase, "Login");
+    if (updatedDatabases & DatabaseLoader::DATABASE_CHARACTER)
+        loader.AddDatabase(CharacterDatabase, "Character");
+    if (updatedDatabases & DatabaseLoader::DATABASE_WORLD)
+        loader.AddDatabase(WorldDatabase, "World");
 
     if (!loader.Load())
         return false;
@@ -138,9 +143,13 @@ bool StartDB()
 /// Close the connection to the database
 void StopDB()
 {
-    CharacterDatabase.Close();
-    WorldDatabase.Close();
-    LoginDatabase.Close();
+    // Close() reads the connection info, which a pool that was never opened lacks.
+    if (updatedDatabases & DatabaseLoader::DATABASE_CHARACTER)
+        CharacterDatabase.Close();
+    if (updatedDatabases & DatabaseLoader::DATABASE_WORLD)
+        WorldDatabase.Close();
+    if (updatedDatabases & DatabaseLoader::DATABASE_LOGIN)
+        LoginDatabase.Close();
     MySQL::Library_End();
 }
 
