@@ -107,3 +107,28 @@ TEST_F(RealmsBindingSeamTest, CastingANamesakeByIdLooksUpTheCopyForAStockClassPl
     EXPECT_EQ(warrior->CastSpell(warrior, BattleShout, true), SPELL_FAILED_SPELL_UNAVAILABLE);
     EXPECT_EQ(warrior->CastCustomSpell(BattleShout, CustomSpellValues(), warrior), SPELL_FAILED_SPELL_UNAVAILABLE);
 }
+
+TEST_F(RealmsBindingSeamTest, ACopyAuraAnswersAuraQueriesByItsNamesake)
+{
+    TestPlayer* warrior = CreateWarrior();
+    ASSERT_NE(warrior->AddAura(sSpellMgr->GetSpellInfo(ShieldWallCopy), 1, warrior), nullptr);
+
+    EXPECT_TRUE(warrior->HasAura(ShieldWall));
+    EXPECT_TRUE(warrior->HasAuraEffect(ShieldWall, EFFECT_0));
+    EXPECT_NE(warrior->GetAuraEffect(ShieldWall, EFFECT_0), nullptr);
+    EXPECT_EQ(warrior->GetAuraCount(ShieldWall), 1u);
+}
+
+TEST_F(RealmsBindingSeamTest, RemovingAurasByEitherIdRemovesThePartnersAura)
+{
+    TestPlayer* warrior = CreateWarrior();
+    TestCreature* npc = CreateTestCreature(20, 520, TEST_FACTION_HOSTILE_TO_ALL);
+    ASSERT_NE(warrior->AddAura(sSpellMgr->GetSpellInfo(ShieldWallCopy), 1, warrior), nullptr);
+    ASSERT_NE(npc->AddAura(sSpellMgr->GetSpellInfo(ShieldWall), 1, npc), nullptr);
+
+    warrior->RemoveAurasDueToSpell(ShieldWall);
+    npc->RemoveAurasDueToSpell(ShieldWallCopy);
+
+    EXPECT_FALSE(warrior->HasAura(ShieldWallCopy));
+    EXPECT_FALSE(npc->HasAura(ShieldWall));
+}

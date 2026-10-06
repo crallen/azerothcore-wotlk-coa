@@ -5591,14 +5591,20 @@ void Unit::RemoveOwnedAura(AuraMap::iterator& i, AuraRemoveMode removeMode)
 
 void Unit::RemoveOwnedAura(uint32 spellId, ObjectGuid casterGUID, uint8 reqEffMask, AuraRemoveMode removeMode)
 {
-    for (AuraMap::iterator itr = m_ownedAuras.lower_bound(spellId); itr != m_ownedAuras.upper_bound(spellId);)
-        if (((itr->second->GetEffectMask() & reqEffMask) == reqEffMask) && (!casterGUID || itr->second->GetCasterGUID() == casterGUID))
-        {
-            RemoveOwnedAura(itr, removeMode);
-            itr = m_ownedAuras.lower_bound(spellId);
-        }
-        else
-            ++itr;
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
+    {
+        if (!id)
+            continue;
+
+        for (AuraMap::iterator itr = m_ownedAuras.lower_bound(id); itr != m_ownedAuras.upper_bound(id);)
+            if (((itr->second->GetEffectMask() & reqEffMask) == reqEffMask) && (!casterGUID || itr->second->GetCasterGUID() == casterGUID))
+            {
+                RemoveOwnedAura(itr, removeMode);
+                itr = m_ownedAuras.lower_bound(id);
+            }
+            else
+                ++itr;
+    }
 }
 
 void Unit::RemoveOwnedAura(Aura* aura, AuraRemoveMode removeMode)
@@ -5625,15 +5631,21 @@ void Unit::RemoveOwnedAura(Aura* aura, AuraRemoveMode removeMode)
 
 Aura* Unit::GetOwnedAura(uint32 spellId, ObjectGuid casterGUID, ObjectGuid itemCasterGUID, uint8 reqEffMask, Aura* except) const
 {
-    AuraMapBounds range = m_ownedAuras.equal_range(spellId);
-    for (AuraMap::const_iterator itr = range.first; itr != range.second; ++itr)
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
     {
-        if (((itr->second->GetEffectMask() & reqEffMask) == reqEffMask)
-                && (!casterGUID || itr->second->GetCasterGUID() == casterGUID)
-                && (!itemCasterGUID || itr->second->GetCastItemGUID() == itemCasterGUID)
-                && (!except || except != itr->second))
+        if (!id)
+            continue;
+
+        AuraMapBounds range = m_ownedAuras.equal_range(id);
+        for (AuraMap::const_iterator itr = range.first; itr != range.second; ++itr)
         {
-            return itr->second;
+            if (((itr->second->GetEffectMask() & reqEffMask) == reqEffMask)
+                    && (!casterGUID || itr->second->GetCasterGUID() == casterGUID)
+                    && (!itemCasterGUID || itr->second->GetCastItemGUID() == itemCasterGUID)
+                    && (!except || except != itr->second))
+            {
+                return itr->second;
+            }
         }
     }
     return nullptr;
@@ -5657,18 +5669,24 @@ void Unit::RemoveAura(AuraApplicationMap::iterator& i, AuraRemoveMode mode)
 
 void Unit::RemoveAura(uint32 spellId, ObjectGuid caster, uint8 reqEffMask, AuraRemoveMode removeMode)
 {
-    AuraApplicationMapBoundsNonConst range = m_appliedAuras.equal_range(spellId);
-    for (AuraApplicationMap::iterator iter = range.first; iter != range.second;)
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
     {
-        Aura const* aura = iter->second->GetBase();
-        if (((aura->GetEffectMask() & reqEffMask) == reqEffMask)
-                && (!caster || aura->GetCasterGUID() == caster))
+        if (!id)
+            continue;
+
+        AuraApplicationMapBoundsNonConst range = m_appliedAuras.equal_range(id);
+        for (AuraApplicationMap::iterator iter = range.first; iter != range.second;)
         {
-            RemoveAura(iter, removeMode);
-            return;
+            Aura const* aura = iter->second->GetBase();
+            if (((aura->GetEffectMask() & reqEffMask) == reqEffMask)
+                    && (!caster || aura->GetCasterGUID() == caster))
+            {
+                RemoveAura(iter, removeMode);
+                break;
+            }
+            else
+                ++iter;
         }
-        else
-            ++iter;
     }
 }
 
@@ -5785,17 +5803,23 @@ void Unit::RemoveAppliedAuras(uint32 spellId, std::function<bool(AuraApplication
 
 void Unit::RemoveAurasDueToSpell(uint32 spellId, ObjectGuid casterGUID, uint8 reqEffMask, AuraRemoveMode removeMode)
 {
-    for (AuraApplicationMap::iterator iter = m_appliedAuras.lower_bound(spellId); iter != m_appliedAuras.upper_bound(spellId);)
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
     {
-        Aura const* aura = iter->second->GetBase();
-        if (((aura->GetEffectMask() & reqEffMask) == reqEffMask)
-                && (!casterGUID || aura->GetCasterGUID() == casterGUID))
+        if (!id)
+            continue;
+
+        for (AuraApplicationMap::iterator iter = m_appliedAuras.lower_bound(id); iter != m_appliedAuras.upper_bound(id);)
         {
-            RemoveAura(iter, removeMode);
-            iter = m_appliedAuras.lower_bound(spellId);
+            Aura const* aura = iter->second->GetBase();
+            if (((aura->GetEffectMask() & reqEffMask) == reqEffMask)
+                    && (!casterGUID || aura->GetCasterGUID() == casterGUID))
+            {
+                RemoveAura(iter, removeMode);
+                iter = m_appliedAuras.lower_bound(id);
+            }
+            else
+                ++iter;
         }
-        else
-            ++iter;
     }
 }
 
@@ -6408,13 +6432,19 @@ void Unit::_ApplyAllAuraStatMods()
 
 AuraEffect* Unit::GetAuraEffect(uint32 spellId, uint8 effIndex, ObjectGuid caster) const
 {
-    AuraApplicationMapBounds range = m_appliedAuras.equal_range(spellId);
-    for (AuraApplicationMap::const_iterator itr = range.first; itr != range.second; ++itr)
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
     {
-        if (itr->second->HasEffect(effIndex)
-                && (!caster || itr->second->GetBase()->GetCasterGUID() == caster))
+        if (!id)
+            continue;
+
+        AuraApplicationMapBounds range = m_appliedAuras.equal_range(id);
+        for (AuraApplicationMap::const_iterator itr = range.first; itr != range.second; ++itr)
         {
-            return itr->second->GetBase()->GetEffect(effIndex);
+            if (itr->second->HasEffect(effIndex)
+                    && (!caster || itr->second->GetBase()->GetCasterGUID() == caster))
+            {
+                return itr->second->GetBase()->GetEffect(effIndex);
+            }
         }
     }
     return nullptr;
@@ -6476,18 +6506,24 @@ AuraEffect* Unit::GetAuraEffectDummy(uint32 spellid) const
 
 AuraApplication* Unit::GetAuraApplication(uint32 spellId, ObjectGuid casterGUID, ObjectGuid itemCasterGUID, uint8 reqEffMask, AuraApplication* except) const
 {
-    AuraApplicationMapBounds range = m_appliedAuras.equal_range(spellId);
-    for (; range.first != range.second; ++range.first)
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
     {
-        AuraApplication* app = range.first->second;
-        Aura const* aura = app->GetBase();
+        if (!id)
+            continue;
 
-        if (((aura->GetEffectMask() & reqEffMask) == reqEffMask)
-                && (!casterGUID || aura->GetCasterGUID() == casterGUID)
-                && (!itemCasterGUID || aura->GetCastItemGUID() == itemCasterGUID)
-                && (!except || except != app))
+        AuraApplicationMapBounds range = m_appliedAuras.equal_range(id);
+        for (; range.first != range.second; ++range.first)
         {
-            return app;
+            AuraApplication* app = range.first->second;
+            Aura const* aura = app->GetBase();
+
+            if (((aura->GetEffectMask() & reqEffMask) == reqEffMask)
+                    && (!casterGUID || aura->GetCasterGUID() == casterGUID)
+                    && (!itemCasterGUID || aura->GetCastItemGUID() == itemCasterGUID)
+                    && (!except || except != app))
+            {
+                return app;
+            }
         }
     }
     return nullptr;
@@ -6583,13 +6619,19 @@ void Unit::GetDispellableAuraList(Unit* caster, uint32 dispelMask, DispelCharges
 
 bool Unit::HasAuraEffect(uint32 spellId, uint8 effIndex, ObjectGuid caster) const
 {
-    AuraApplicationMapBounds range = m_appliedAuras.equal_range(spellId);
-    for (AuraApplicationMap::const_iterator itr = range.first; itr != range.second; ++itr)
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
     {
-        if (itr->second->HasEffect(effIndex)
-                && (!caster || itr->second->GetBase()->GetCasterGUID() == caster))
+        if (!id)
+            continue;
+
+        AuraApplicationMapBounds range = m_appliedAuras.equal_range(id);
+        for (AuraApplicationMap::const_iterator itr = range.first; itr != range.second; ++itr)
         {
-            return true;
+            if (itr->second->HasEffect(effIndex)
+                    && (!caster || itr->second->GetBase()->GetCasterGUID() == caster))
+            {
+                return true;
+            }
         }
     }
     return false;
@@ -6598,14 +6640,20 @@ bool Unit::HasAuraEffect(uint32 spellId, uint8 effIndex, ObjectGuid caster) cons
 uint32 Unit::GetAuraCount(uint32 spellId) const
 {
     uint32 count = 0;
-    AuraApplicationMapBounds range = m_appliedAuras.equal_range(spellId);
-
-    for (AuraApplicationMap::const_iterator itr = range.first; itr != range.second; ++itr)
+    for (uint32 id : { spellId, Realms::Partner(spellId) }) // wow-realms: copy binding
     {
-        if (itr->second->GetBase()->GetStackAmount() == 0)
-            ++count;
-        else
-            count += (uint32)itr->second->GetBase()->GetStackAmount();
+        if (!id)
+            continue;
+
+        AuraApplicationMapBounds range = m_appliedAuras.equal_range(id);
+
+        for (AuraApplicationMap::const_iterator itr = range.first; itr != range.second; ++itr)
+        {
+            if (itr->second->GetBase()->GetStackAmount() == 0)
+                ++count;
+            else
+                count += (uint32)itr->second->GetBase()->GetStackAmount();
+        }
     }
 
     return count;
