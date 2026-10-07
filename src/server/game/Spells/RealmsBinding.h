@@ -35,6 +35,17 @@ namespace Realms
         uint32 ClassMasksMirrored = 0;
         uint32 FamilyFlagsMirrored = 0;
         uint32 TriggersMirrored = 0;
+        // 3.3.5a spell-mod masks restored on copies whose namesake lost them too (custom_wcr_mask).
+        uint32 StockMasksRestored = 0;
+    };
+
+    // A spell-mod mask 3.3.5a's namesake has on one of the copy's effects, which today's Spell.dbc lacks on
+    // both sides; Bind ORs it into the copy's.
+    struct MaskRow
+    {
+        uint32 Copy;
+        uint8 EffectIndex;
+        uint32 Mask[3];
     };
 
     using SpellInfoLookup = std::function<SpellInfo*(uint32 spellId)>;
@@ -42,7 +53,7 @@ namespace Realms
 
     void LoadBinding();
     BindingCounts Bind(std::vector<PairRow> const& pairs, std::vector<uint32> const& correctionExclusions,
-        uint32 spellStoreSize, SpellInfoLookup const& spellInfo);
+        uint32 spellStoreSize, SpellInfoLookup const& spellInfo, std::vector<MaskRow> const& stockMasks = {});
     void ClearBinding();
     void MirrorCorrection(uint32 spellId, SpellFix fix, std::vector<SpellInfo*> const& corrected);
     BindingCounts ReportBinding();
