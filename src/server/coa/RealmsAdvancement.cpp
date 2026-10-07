@@ -13,6 +13,7 @@
 #include "RealmsBinding.h"
 #include "ScriptMgr.h"
 #include "SpellMgr.h"
+#include "Trainer.h"
 #include "World.h"
 #include <algorithm>
 #include <atomic>
@@ -374,6 +375,8 @@ public:
         LoadStartingKits();
         LOG_INFO("coa", "Realms advancement: {} stock catalog rows, {} classes budgeted", StockCatalogRows(catalog),
             BudgetedStockClasses(catalog));
+        Trainer::SetClassTrainerFor(nullptr);
+        LOG_INFO("coa", "Realms trainers: active");
     }
 };
 }
