@@ -344,6 +344,24 @@ TEST_F(RealmsBindingTest, BindOrsA3_3_5aMaskIntoABoundCopysEffectOnly)
     EXPECT_EQ(bound.StockMasksRestored, 1u);
 }
 
+TEST_F(RealmsBindingTest, BindSets3_3_5aProcFieldsOnABoundCopyOnly)
+{
+    constexpr uint32 MendingNamesake = 41635;
+    constexpr uint32 MendingCopy = 1141635;
+    spells[MendingNamesake] = SpellInfoBuilder().WithId(MendingNamesake).WithProcFlags(0xAA2A8).BuildUnique();
+    spells[MendingCopy] = SpellInfoBuilder().WithId(MendingCopy).WithProcFlags(0x20).WithProcChance(100).BuildUnique();
+
+    Realms::BindingCounts const bound = Realms::Bind({ { MendingCopy, MendingNamesake }, { Copy, Namesake } }, {},
+        SpellStoreSize, Lookup(), {}, { { MendingCopy, Realms::StockProcField::ProcFlags, 0xAA2A8 },
+            { MendingCopy, Realms::StockProcField::ProcChance, 100 },
+            { Unpaired, Realms::StockProcField::ProcChance, 15 } });
+
+    EXPECT_EQ(spells[MendingCopy]->ProcFlags, 0xAA2A8u);
+    EXPECT_EQ(spells[MendingCopy]->ProcChance, 100u);
+    EXPECT_EQ(spells[Unpaired]->ProcChance, 0u);
+    EXPECT_EQ(bound.StockProcFieldsRestored, 1u);
+}
+
 TEST_F(RealmsBindingTest, AScriptRunOnACopySeesItsNamesakesSpellId)
 {
     struct ProbeScript : public SpellScript
