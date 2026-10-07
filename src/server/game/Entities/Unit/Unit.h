@@ -1997,6 +1997,12 @@ public:
         return form == FORM_CAT || form == FORM_BEAR || form == FORM_DIREBEAR || form == FORM_GHOSTWOLF || // Xinef: added shamans Ghost Wolf, should behave exactly like druid forms
                form == FORM_VENOMANCER_SPIDER || form == FORM_VENOMANCER_BEETLE; // Venomancer forms use the same natural-weapon combat model
     }
+    // Venomancer forms keep the equipped weapon's DPS at the form's own swing speed
+    [[nodiscard]] bool IsInWeaponNormalizingForm() const
+    {
+        ShapeshiftForm form = GetShapeshiftForm();
+        return form == FORM_VENOMANCER_SPIDER || form == FORM_VENOMANCER_BEETLE;
+    }
 
     // Unit transform
     void setTransForm(uint32 spellid) { m_transform = spellid;}
