@@ -1115,7 +1115,9 @@ class spell_mage_empowered_fire : public AuraScript
     void Register() override
     {
         DoCheckProc += AuraCheckProcFn(spell_mage_empowered_fire::CheckProc);
-        OnEffectProc += AuraEffectProcFn(spell_mage_empowered_fire::HandleProc, EFFECT_0, SPELL_AURA_ADD_FLAT_MODIFIER);
+        // wow-realms: the Warcraft Reborn copy's first effect is a percent modifier (3.3.5a's is flat); the mana
+        // return does not read the aura, so any aura binds.
+        OnEffectProc += AuraEffectProcFn(spell_mage_empowered_fire::HandleProc, EFFECT_0, SPELL_AURA_ANY);
     }
 };
 
