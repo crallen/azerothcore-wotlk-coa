@@ -321,6 +321,29 @@ TEST_F(RealmsBindingTest, BindReplacesOnlyATriggerSpellTheStoreLacks)
     EXPECT_EQ(bound.TriggersMirrored, 1u);
 }
 
+TEST_F(RealmsBindingTest, BindOrsA3_3_5aMaskIntoABoundCopysEffectOnly)
+{
+    constexpr uint32 ArrowNamesake = 63668;
+    constexpr uint32 ArrowCopy = 1163668;
+    auto arrow = [](uint32 id)
+    {
+        return SpellInfoBuilder().WithId(id).WithSpellFamilyName(SPELLFAMILY_HUNTER)
+            .WithEffect(EFFECT_1, SPELL_EFFECT_APPLY_AURA, SPELL_AURA_MOD_DAMAGE_FROM_CASTER).BuildUnique();
+    };
+    spells[ArrowNamesake] = arrow(ArrowNamesake);
+    spells[ArrowCopy] = arrow(ArrowCopy);
+    spells[ArrowCopy]->_GetEffect(EFFECT_1).SpellClassMask = flag96(0x37801, 0, 0x3C1);
+
+    Realms::BindingCounts const bound = Realms::Bind({ { ArrowCopy, ArrowNamesake }, { Copy, Namesake } }, {},
+        SpellStoreSize, Lookup(), { { ArrowCopy, EFFECT_1, { 0x37801, 0x80800101, 0x3C1 } },
+            { Copy, EFFECT_0, { 0, 0, 0 } }, { Unpaired, EFFECT_0, { 0x1, 0, 0 } }, { ArrowCopy, 3, { 0x1, 0, 0 } } });
+
+    EXPECT_EQ(spells[ArrowCopy]->GetEffect(EFFECT_1).SpellClassMask, flag96(0x37801, 0x80800101, 0x3C1));
+    EXPECT_EQ(spells[ArrowNamesake]->GetEffect(EFFECT_1).SpellClassMask, flag96(0, 0, 0));
+    EXPECT_EQ(spells[Unpaired]->GetEffect(EFFECT_0).SpellClassMask, flag96(0, 0, 0));
+    EXPECT_EQ(bound.StockMasksRestored, 1u);
+}
+
 TEST_F(RealmsBindingTest, AScriptRunOnACopySeesItsNamesakesSpellId)
 {
     struct ProbeScript : public SpellScript
