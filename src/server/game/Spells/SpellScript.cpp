@@ -19,6 +19,7 @@
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "SpellMgr.h"
+#include "RealmsBinding.h"
 #include <string>
 
 bool _SpellScript::_Validate(SpellInfo const* entry)
@@ -60,7 +61,9 @@ void _SpellScript::_Init(std::string const* scriptname, uint32 spellId)
 {
     m_currentScriptState = SPELL_SCRIPT_STATE_NONE;
     m_scriptName = scriptname;
-    m_scriptSpellId = spellId;
+    // wow-realms: a Warcraft Reborn copy runs its namesake's script as the namesake, so a Register() or
+    // handler that picks by spell id takes the stock branch
+    m_scriptSpellId = Realms::StockId(spellId);
 }
 
 std::string const* _SpellScript::_GetScriptName() const

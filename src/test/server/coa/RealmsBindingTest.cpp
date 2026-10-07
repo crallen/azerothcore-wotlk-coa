@@ -5,6 +5,7 @@
 #include "RealmsBinding.h"
 #include "SpellInfoTestHelper.h"
 #include "SpellMgr.h"
+#include "SpellScript.h"
 #include <map>
 #include <memory>
 
@@ -318,6 +319,25 @@ TEST_F(RealmsBindingTest, BindReplacesOnlyATriggerSpellTheStoreLacks)
     EXPECT_EQ(spells[InvisibilityCopy]->GetEffect(EFFECT_1).TriggerSpell, Fade);
     EXPECT_EQ(spells[Copy]->GetEffect(EFFECT_0).TriggerSpell, Unpaired);
     EXPECT_EQ(bound.TriggersMirrored, 1u);
+}
+
+TEST_F(RealmsBindingTest, AScriptRunOnACopySeesItsNamesakesSpellId)
+{
+    struct ProbeScript : public SpellScript
+    {
+        void Register() override { }
+        uint32 ScriptSpellId() const { return m_scriptSpellId; }
+    };
+    std::string const name = "probe";
+    ProbeScript onCopy, onNamesake, onUnpaired;
+
+    onCopy._Init(&name, Copy);
+    onNamesake._Init(&name, Namesake);
+    onUnpaired._Init(&name, Unpaired);
+
+    EXPECT_EQ(onCopy.ScriptSpellId(), Namesake);
+    EXPECT_EQ(onNamesake.ScriptSpellId(), Namesake);
+    EXPECT_EQ(onUnpaired.ScriptSpellId(), Unpaired);
 }
 
 TEST_F(RealmsBindingTest, ReportBindingCarriesTheLoadedCountsAndNothingWhenEmpty)
