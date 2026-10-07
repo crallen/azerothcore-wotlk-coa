@@ -1894,7 +1894,8 @@ class spell_sha_static_shock : public AuraScript
 
     void Register() override
     {
-        OnEffectProc += AuraEffectProcFn(spell_sha_static_shock::HandleProc, EFFECT_0, SPELL_AURA_DUMMY);
+        // wow-realms: the Warcraft Reborn copy's effect 0 is a proc aura with no trigger; the handler prevents it
+        OnEffectProc += AuraEffectProcFn(spell_sha_static_shock::HandleProc, EFFECT_0, SPELL_AURA_ANY);
     }
 };
 
