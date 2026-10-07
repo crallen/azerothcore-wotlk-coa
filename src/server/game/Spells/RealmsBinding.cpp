@@ -146,8 +146,9 @@ namespace
     {
         QueryResult result = WorldDatabase.Query(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() "
-            "AND table_name IN ('custom_wcr_pair', 'custom_wcr_override', 'custom_wcr_mask')");
-        return result && result->Fetch()[0].Get<uint64>() == 3;
+            "AND table_name IN ('custom_wcr_pair', 'custom_wcr_override', 'custom_wcr_mask', "
+            "'custom_wcr_stock_proc')");
+        return result && result->Fetch()[0].Get<uint64>() == 4;
     }
 }
 
@@ -161,7 +162,8 @@ namespace Realms
 
         if (!PairTablesExist())
         {
-            LOG_ERROR("coa", "Realms copy-binding: custom_wcr_pair, custom_wcr_override or custom_wcr_mask is missing, "
+            LOG_ERROR("coa", "Realms copy-binding: custom_wcr_pair, custom_wcr_override, custom_wcr_mask or "
+                "custom_wcr_stock_proc is missing, "
                 "no copies are bound");
             return;
         }
@@ -198,12 +200,27 @@ namespace Realms
             } while (result->NextRow());
         }
 
+        std::vector<StockProcRow> stockProcs;
+        if (QueryResult result = WorldDatabase.Query(
+            "SELECT `copy`, `field`, `value` FROM `custom_wcr_stock_proc` ORDER BY `copy`, `field`"))
+        {
+            do
+            {
+                Field const* fields = result->Fetch();
+                stockProcs.push_back({ fields[0].Get<uint32>(),
+                    fields[1].Get<std::string>() == "ProcChance" ? StockProcField::ProcChance : StockProcField::ProcFlags,
+                    fields[2].Get<uint32>() });
+            } while (result->NextRow());
+        }
+
         Bind(pairs, exclusions, sSpellMgr->GetSpellInfoStoreSize(),
-            [](uint32 spellId) { return const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)); }, stockMasks);
+            [](uint32 spellId) { return const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)); }, stockMasks,
+            stockProcs);
     }
 
     BindingCounts Bind(std::vector<PairRow> const& pairs, std::vector<uint32> const& correctionExclusions,
-        uint32 spellStoreSize, SpellInfoLookup const& spellInfo, std::vector<MaskRow> const& stockMasks)
+        uint32 spellStoreSize, SpellInfoLookup const& spellInfo, std::vector<MaskRow> const& stockMasks,
+        std::vector<StockProcRow> const& stockProcs)
     {
         ClearBinding();
         partners.assign(spellStoreSize, 0);
@@ -252,6 +269,23 @@ namespace Realms
             {
                 effect.SpellClassMask |= stock;
                 ++counts.StockMasksRestored;
+            }
+        }
+
+        for (StockProcRow const& row : stockProcs)
+        {
+            if (row.Copy >= spellStoreSize || !(flags[row.Copy] & BINDING_COPY))
+            {
+                LOG_ERROR("coa", "Realms copy-binding: 3.3.5a proc field for {} names no bound copy, skipped", row.Copy);
+                continue;
+            }
+
+            SpellInfo* copy = spellInfo(row.Copy);
+            uint32& field = row.Field == StockProcField::ProcChance ? copy->ProcChance : copy->ProcFlags;
+            if (field != row.Value)
+            {
+                field = row.Value;
+                ++counts.StockProcFieldsRestored;
             }
         }
 
@@ -312,10 +346,10 @@ namespace Realms
         if (Enabled())
             LOG_INFO("coa", "Realms copy-binding: {} pairs, {} correction exclusions, {} corrections mirrored, "
                 "gaps filled: {} proc flags, {} proc chances, {} proc charges, {} class masks, {} family flags, "
-                "{} triggers; 3.3.5a masks restored: {}", bound.Pairs, bound.CorrectionExclusions,
+                "{} triggers; 3.3.5a restored: {} masks, {} proc fields", bound.Pairs, bound.CorrectionExclusions,
                 bound.CorrectionsMirrored, bound.ProcFlagsMirrored, bound.ProcChancesMirrored,
                 bound.ProcChargesMirrored, bound.ClassMasksMirrored, bound.FamilyFlagsMirrored,
-                bound.TriggersMirrored, bound.StockMasksRestored);
+                bound.TriggersMirrored, bound.StockMasksRestored, bound.StockProcFieldsRestored);
         return bound;
     }
 
