@@ -146,8 +146,8 @@ namespace
     {
         QueryResult result = WorldDatabase.Query(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() "
-            "AND table_name IN ('custom_wcr_pair', 'custom_wcr_override')");
-        return result && result->Fetch()[0].Get<uint64>() == 2;
+            "AND table_name IN ('custom_wcr_pair', 'custom_wcr_override', 'custom_wcr_mask')");
+        return result && result->Fetch()[0].Get<uint64>() == 3;
     }
 }
 
@@ -161,7 +161,7 @@ namespace Realms
 
         if (!PairTablesExist())
         {
-            LOG_ERROR("coa", "Realms copy-binding: custom_wcr_pair or custom_wcr_override is missing, "
+            LOG_ERROR("coa", "Realms copy-binding: custom_wcr_pair, custom_wcr_override or custom_wcr_mask is missing, "
                 "no copies are bound");
             return;
         }
@@ -186,12 +186,24 @@ namespace Realms
             } while (result->NextRow());
         }
 
+        std::vector<MaskRow> stockMasks;
+        if (QueryResult result = WorldDatabase.Query(
+            "SELECT `copy`, `effect_index`, `mask0`, `mask1`, `mask2` FROM `custom_wcr_mask` ORDER BY `copy`, `effect_index`"))
+        {
+            do
+            {
+                Field const* fields = result->Fetch();
+                stockMasks.push_back({ fields[0].Get<uint32>(), fields[1].Get<uint8>(),
+                    { fields[2].Get<uint32>(), fields[3].Get<uint32>(), fields[4].Get<uint32>() } });
+            } while (result->NextRow());
+        }
+
         Bind(pairs, exclusions, sSpellMgr->GetSpellInfoStoreSize(),
-            [](uint32 spellId) { return const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)); });
+            [](uint32 spellId) { return const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId)); }, stockMasks);
     }
 
     BindingCounts Bind(std::vector<PairRow> const& pairs, std::vector<uint32> const& correctionExclusions,
-        uint32 spellStoreSize, SpellInfoLookup const& spellInfo)
+        uint32 spellStoreSize, SpellInfoLookup const& spellInfo, std::vector<MaskRow> const& stockMasks)
     {
         ClearBinding();
         partners.assign(spellStoreSize, 0);
@@ -223,6 +235,24 @@ namespace Realms
             copy->RealmsNamesake = pair.Namesake;
             ++counts.Pairs;
             FillGaps(*copy, *namesake, spellStoreSize, spellInfo, counts);
+        }
+
+        for (MaskRow const& row : stockMasks)
+        {
+            if (row.Copy >= spellStoreSize || !(flags[row.Copy] & BINDING_COPY) || row.EffectIndex >= MAX_SPELL_EFFECTS)
+            {
+                LOG_ERROR("coa", "Realms copy-binding: 3.3.5a mask for {} effect {} names no bound copy effect, "
+                    "skipped", row.Copy, row.EffectIndex);
+                continue;
+            }
+
+            SpellEffectInfo& effect = spellInfo(row.Copy)->_GetEffect(SpellEffIndex(row.EffectIndex));
+            flag96 const stock(row.Mask[0], row.Mask[1], row.Mask[2]);
+            if (stock & ~effect.SpellClassMask)
+            {
+                effect.SpellClassMask |= stock;
+                ++counts.StockMasksRestored;
+            }
         }
 
         for (uint32 copy : correctionExclusions)
@@ -282,9 +312,10 @@ namespace Realms
         if (Enabled())
             LOG_INFO("coa", "Realms copy-binding: {} pairs, {} correction exclusions, {} corrections mirrored, "
                 "gaps filled: {} proc flags, {} proc chances, {} proc charges, {} class masks, {} family flags, "
-                "{} triggers", bound.Pairs, bound.CorrectionExclusions, bound.CorrectionsMirrored,
-                bound.ProcFlagsMirrored, bound.ProcChancesMirrored, bound.ProcChargesMirrored,
-                bound.ClassMasksMirrored, bound.FamilyFlagsMirrored, bound.TriggersMirrored);
+                "{} triggers; 3.3.5a masks restored: {}", bound.Pairs, bound.CorrectionExclusions,
+                bound.CorrectionsMirrored, bound.ProcFlagsMirrored, bound.ProcChancesMirrored,
+                bound.ProcChargesMirrored, bound.ClassMasksMirrored, bound.FamilyFlagsMirrored,
+                bound.TriggersMirrored, bound.StockMasksRestored);
         return bound;
     }
 
