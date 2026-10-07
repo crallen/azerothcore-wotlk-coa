@@ -2361,6 +2361,19 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const* aurApp, uint8 mo
     if (target->IsPlayer())
         target->ToPlayer()->InitDataForForm();
 
+    // Venomancer forms ignore disarm, so shifting in while disarmed restores the weapon's damage and shifting out removes it.
+    // A direct switch removes the old form first (they share an exclusive spell group), so the new form's apply half restores the weapon;
+    // the form check skips a removal that runs after another form is already set.
+    if (target->IsPlayer() && (form == FORM_VENOMANCER_SPIDER || form == FORM_VENOMANCER_BEETLE) &&
+        target->IsInVenomancerForm() == apply && !target->CanUseAttackType(BASE_ATTACK))
+    {
+        Player* player = target->ToPlayer();
+        Item* mainHand = player->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
+        if (mainHand && !mainHand->IsBroken())
+            player->_ApplyWeaponDamage(EQUIPMENT_SLOT_MAINHAND,
+                LocalLevelScaling::InstanceTemplateFor(mainHand, mainHand->GetTemplate()), nullptr, apply);
+    }
+
     if (target->IsClass(CLASS_DRUID, CLASS_CONTEXT_ABILITY))
     {
         // Dash

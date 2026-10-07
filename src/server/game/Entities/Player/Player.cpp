@@ -7417,7 +7417,7 @@ void Player::_ApplyWeaponDamage(uint8 slot, ItemTemplate const* proto, ScalingSt
     }
 
     // No need to modify any physical damage for ferals as it is calculated from stats only
-    if (IsInFeralForm())
+    if (IsInFeralForm() && !IsInVenomancerForm())
         return;
 
     if (CanModifyStats() && (GetWeaponDamageRange(attType, MAXDAMAGE) || proto->Delay))
