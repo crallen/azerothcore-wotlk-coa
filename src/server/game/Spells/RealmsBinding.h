@@ -37,6 +37,8 @@ namespace Realms
         uint32 TriggersMirrored = 0;
         // 3.3.5a spell-mod masks restored on copies whose namesake lost them too (custom_wcr_mask).
         uint32 StockMasksRestored = 0;
+        // 3.3.5a proc flags and chances set on copies whose own contradict their tooltip (custom_wcr_stock_proc).
+        uint32 StockProcFieldsRestored = 0;
     };
 
     // A spell-mod mask 3.3.5a's namesake has on one of the copy's effects, which today's Spell.dbc lacks on
@@ -48,12 +50,27 @@ namespace Realms
         uint32 Mask[3];
     };
 
+    // A proc field of 3.3.5a's namesake that Bind sets on the copy.
+    enum class StockProcField : uint8
+    {
+        ProcFlags,
+        ProcChance
+    };
+
+    struct StockProcRow
+    {
+        uint32 Copy;
+        StockProcField Field;
+        uint32 Value;
+    };
+
     using SpellInfoLookup = std::function<SpellInfo*(uint32 spellId)>;
     using SpellFix = void (*)(SpellInfo* spellInfo);
 
     void LoadBinding();
     BindingCounts Bind(std::vector<PairRow> const& pairs, std::vector<uint32> const& correctionExclusions,
-        uint32 spellStoreSize, SpellInfoLookup const& spellInfo, std::vector<MaskRow> const& stockMasks = {});
+        uint32 spellStoreSize, SpellInfoLookup const& spellInfo, std::vector<MaskRow> const& stockMasks = {},
+        std::vector<StockProcRow> const& stockProcs = {});
     void ClearBinding();
     void MirrorCorrection(uint32 spellId, SpellFix fix, std::vector<SpellInfo*> const& corrected);
     BindingCounts ReportBinding();
