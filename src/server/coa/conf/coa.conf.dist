@@ -92,6 +92,15 @@ CoA.LearnOwnedCompanions = 1
 # Default: Lootbot 3000 and the Book of Artisans.
 CoA.StarterVanityItems = "57000 134987"
 
+#
+#    CoA.WelcomeWarchest.Enable
+#        Description: Mail each account's first character to reach level 10 the Elite Warchest
+#                     (item 2977351), once per account. 0 sends none; an account that already
+#                     claimed one keeps it.
+#        Default:     1
+
+CoA.WelcomeWarchest.Enable = 1
+
 # Solo-server convenience: all riding ranks (300/300) and Cold Weather Flying
 # from the first login, including level-one characters. No profession grants.
 CoA.MaxRidingFromStart = 1
