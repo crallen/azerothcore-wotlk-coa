@@ -178,21 +178,11 @@ public:
 class CoACreatureScalingDamage final : public UnitScript
 {
 public:
-    CoACreatureScalingDamage() : UnitScript("CoACreatureScalingDamage", true, { UNITHOOK_MODIFY_MELEE_DAMAGE,
-        UNITHOOK_MODIFY_SPELL_DAMAGE_TAKEN, UNITHOOK_MODIFY_PERIODIC_DAMAGE_AURAS_TICK })
+    // wow-realms: melee only; creature spells already carry Ascension's live values in Spell.dbc.
+    CoACreatureScalingDamage() : UnitScript("CoACreatureScalingDamage", true, { UNITHOOK_MODIFY_MELEE_DAMAGE })
     { }
 
     void ModifyMeleeDamage(Unit* target, Unit* attacker, uint32& damage) override
-    {
-        ScaleDamage(damage, target, attacker);
-    }
-
-    void ModifySpellDamageTaken(Unit* target, Unit* attacker, int32& damage, SpellInfo const*) override
-    {
-        ScaleDamage(damage, target, attacker);
-    }
-
-    void ModifyPeriodicDamageAurasTick(Unit* target, Unit* attacker, uint32& damage, SpellInfo const*) override
     {
         ScaleDamage(damage, target, attacker);
     }

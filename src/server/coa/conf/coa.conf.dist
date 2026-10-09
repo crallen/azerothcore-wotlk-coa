@@ -44,7 +44,9 @@ CoA.EquippedGearLoot = 1
 CoA.EquippedGearLootChance = 5
 
 # Health and damage multipliers for regular-difficulty creatures, tuned to Ascension's combat logs.
-# Health is multiplied when a creature takes its level; damage applies to hits on players and their pets.
+# Health is multiplied when a creature takes its level; damage applies to melee hits on players
+# and their pets.
+# wow-realms: melee only; creature spell damage comes from Spell.dbc unscaled.
 # Heroic/Mythic, battlegrounds, arenas, pets, summons, totems, triggers, critters and training dummies are
 # not changed; raid creatures listed in coa_boss_flex keep their measured flex health.
 # MapHealth/MapDamage replace the context value per map as "mapId:multiplier".
