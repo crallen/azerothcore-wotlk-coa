@@ -784,6 +784,14 @@ public:
 
     // Talent Additional Set
     [[nodiscard]] bool IsAdditionalTalentSpell(uint32 spellId) const;
+    // wow-realms: free-pick, lets the gtests mark a spell a talent rank teaches as additional.
+    void SetAdditionalTalentSpellForTest(uint32 spellId, bool additional)
+    {
+        if (additional)
+            mTalentSpellAdditionalSet.insert(spellId);
+        else
+            mTalentSpellAdditionalSet.erase(spellId);
+    }
 
     [[nodiscard]] bool HasSpellCooldownOverride(uint32 spellId) const;
     [[nodiscard]] SpellCooldownOverride GetSpellCooldownOverride(uint32 spellId) const;

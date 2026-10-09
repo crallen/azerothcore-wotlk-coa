@@ -169,11 +169,12 @@ std::vector<uint32> LearnEffectSpells(uint32 spellId)
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
     if (!spellInfo)
         return spells;
+    // wow-realms: additional talent spells too, which stock LearnTalent learns and talent reset removes.
     for (SpellEffectInfo const& effect : spellInfo->Effects)
-        if (effect.Effect == SPELL_EFFECT_LEARN_SPELL && effect.TriggerSpell &&
-            !sSpellMgr->IsAdditionalTalentSpell(effect.TriggerSpell))
+        if (effect.Effect == SPELL_EFFECT_LEARN_SPELL && effect.TriggerSpell)
             spells.push_back(effect.TriggerSpell);
     return spells;
+}
 }
 
 std::vector<uint32> RankSpells(uint32 spellId)
@@ -181,6 +182,8 @@ std::vector<uint32> RankSpells(uint32 spellId)
     return TaughtSpells(spellId, &LearnEffectSpells);
 }
 
+namespace
+{
 std::unordered_set<uint32> GrantedSpells(std::vector<Entry> const& entries)
 {
     std::unordered_set<uint32> spells;

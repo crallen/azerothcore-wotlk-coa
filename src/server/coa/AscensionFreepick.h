@@ -41,6 +41,8 @@ std::array<bool, 5> RealmGates();
 std::uint32_t ActiveSpecialization(Player const* player);
 bool SwitchSpecialization(Player* player, std::uint32_t index, std::string& error);
 std::uint32_t InvestedEssence(Player const* player, std::uint32_t classType, std::uint32_t tab, bool talent);
+// wow-realms: the spells a free-pick rank grants, public so a gtest drives it over the SpellMgr.
+std::vector<std::uint32_t> RankSpells(std::uint32_t spellId);
 }
 
 void ApplyAscensionPathPassiveContract(SpellInfo* spellInfo);
