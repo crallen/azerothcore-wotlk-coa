@@ -111,6 +111,13 @@ void ApplyContracts(SpellInfo* info)
         info->Effects[1].MiscValue = SPELLMOD_RADIUS;
     if (id == StingingChitin || id == RapidInjection)
         info->Attributes |= SPELL_ATTR0_PASSIVE;
+    constexpr uint32 SwiftPincers = 705976;
+    // wow-realms: the client ships Swift Pincers without the passive attribute and with ProcFlags 0.
+    if (id == SwiftPincers)
+    {
+        info->Attributes |= SPELL_ATTR0_PASSIVE;
+        info->ProcFlags = PROC_FLAG_DONE_MELEE_AUTO_ATTACK;
+    }
     if (id == 803216)
         info->Effects[1].ApplyAuraName = SPELL_AURA_230;
     if (id == 805139)
