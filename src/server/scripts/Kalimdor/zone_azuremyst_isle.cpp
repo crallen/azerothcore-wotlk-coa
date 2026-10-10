@@ -40,7 +40,8 @@ enum draeneiSurvivor
     SPELL_GIFT_OF_THE_NAARU_COA_SPELL_POWER  = 814280,
     SPELL_GIFT_OF_THE_NAARU_COA_ATTACK_POWER = 814281,
     SPELL_GIFT_OF_THE_NAARU_COA_HYBRID       = 814282,
-    SPELL_GIFT_OF_THE_NAARU_COA_HERO         = 59542
+    SPELL_GIFT_OF_THE_NAARU_COA_HERO         = 59542,
+    SPELL_GIFT_OF_THE_NAARU_SHAMAN           = 59547
 };
 
 class npc_draenei_survivor : public CreatureScript
@@ -98,7 +99,8 @@ public:
                 Spell->Id == SPELL_GIFT_OF_THE_NAARU_COA_SPELL_POWER ||
                 Spell->Id == SPELL_GIFT_OF_THE_NAARU_COA_ATTACK_POWER ||
                 Spell->Id == SPELL_GIFT_OF_THE_NAARU_COA_HYBRID ||
-                Spell->Id == SPELL_GIFT_OF_THE_NAARU_COA_HERO)
+                Spell->StockId() == SPELL_GIFT_OF_THE_NAARU_COA_HERO || // wow-realms: copy binding
+                Spell->StockId() == SPELL_GIFT_OF_THE_NAARU_SHAMAN)
             {
                 me->RemoveUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED);
                 me->SetStandState(UNIT_STAND_STATE_STAND);
