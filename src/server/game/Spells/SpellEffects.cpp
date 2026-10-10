@@ -3382,7 +3382,8 @@ void Spell::EffectEnchantItemTmp(SpellEffIndex effIndex)
     // Rockbiter Weapon apply to both weapon
     if (!itemTarget)
         return;
-    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_SHAMAN && m_spellInfo->SpellFamilyFlags[0] & 0x400000)
+    // wow-realms: a Warcraft Reborn copy names its own attack power enchant and falls through to the plain path
+    if (m_spellInfo->SpellFamilyName == SPELLFAMILY_SHAMAN && m_spellInfo->SpellFamilyFlags[0] & 0x400000 && !m_spellInfo->RealmsNamesake)
     {
         uint32 spell_id = 0;
 
