@@ -14835,7 +14835,8 @@ float Unit::GetAPMultiplier(WeaponAttackType attType, bool normalized)
     if (!normalized || !IsPlayer())
         return float(GetAttackTime(attType)) / 1000.0f;
 
-    Item* Weapon = ToPlayer()->GetWeaponForAttack(attType, true);
+    // wow-realms: Spider and Beetle Form normalize to the equipped weapon's type, which their feral model makes unusable.
+    Item* Weapon = ToPlayer()->GetWeaponForAttack(attType, !IsInVenomancerForm());
     if (!Weapon)
         return 2.4f;                                         // fist attack
 
