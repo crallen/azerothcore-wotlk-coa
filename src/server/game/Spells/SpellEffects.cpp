@@ -709,7 +709,14 @@ void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
                     }
                     // Victory Rush
                     else if (m_spellInfo->SpellFamilyFlags[1] & 0x100)
-                        ApplyPct(damage, m_caster->GetTotalAttackPowerValue(BASE_ATTACK));
+                    {
+                        // wow-realms: Ascension zeroed the base points and scales Victory Rush by its
+                        // spell_bonus_data ap_bonus alone; the die's 1 would add 1% of attack power.
+                        if (m_spellInfo->Effects[effIndex].BasePoints == 0)
+                            damage = 0;
+                        else
+                            ApplyPct(damage, m_caster->GetTotalAttackPowerValue(BASE_ATTACK));
+                    }
                     // Shockwave
                     else if (m_spellInfo->Id == 46968)
                     {
