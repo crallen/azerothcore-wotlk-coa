@@ -274,7 +274,10 @@ void AssignLevel(Player* owner, Item* item, uint32 key)
     if (!IsScalingItem(proto) || StoredLevel(item))
         return;
 
-    uint8 const level = ItemLadder::ClampLevel(key);
+    uint8 const level = ItemLadder::RaisedLevel(key, proto->ItemLevel); // wow-realms: only raise an item
+    if (!level)
+        return;
+
     {
         std::unique_lock lock(levelsMutex);
         instanceLevels[item->GetGUID().GetCounter()] = level;
@@ -292,7 +295,8 @@ void AssignDropLevel(Player* looter, Item* item, uint32 base = 0)
 
     if (!base)
         base = DropBase(looter);
-    AssignLevel(looter, item, levelKeys.load(std::memory_order_relaxed) ? ItemLadder::ClientKey(base) : base);
+    // wow-realms: past 60 the looter takes the client's item level for its level.
+    AssignLevel(looter, item, ItemLadder::DropKey(base, levelKeys.load(std::memory_order_relaxed)));
 }
 
 void MasterLooted(Player* receiver, Item* item)

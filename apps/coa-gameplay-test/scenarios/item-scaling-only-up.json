@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "name": "Item scaling: a laddered item only scales up, and past 60 takes the client's item level",
+  "contract": "Requires DestinyWeaver.Enable=1, DestinyWeaver.LevelScaling=1, CoA.ItemScaling=1 and CoA.ItemScaling.Native=1 with ItemStat.dbc in the data directory, CoA.ItemScaling.Native.LootLevelOffset 0 and CoA.ItemScaling.Native.LevelKeys 0. The Rake 5807 drops Lionfur Armor 17922 (green, item level 10, required level 5, 108 armor) at 100%, and Lionfur Armor has an ItemStat.dbc ladder with rows up to the client's last, 105. A looter above 60 with scaling on takes the client's item level for its level: at 61 the 86 row (required level 61, 655 armor), at 75 the 105 row (required level 70, 1028 armor), since 71 to 80 stay on the client's last row. A level 8 looter with scaling on gets no scaling level, because the item is written at item level 10, above the looter, and native item scaling never lowers an item; it keeps required level 5 and 108 armor. A level 62 looter with scaling off also keeps the written item. Client rendering of the item is not tested.",
+  "timeout_ms": 180000,
+  "location": { "map": 0, "x": -9465, "y": 64, "z": 56, "o": 0 },
+  "players": [
+    { "id": "hero61", "race": 1, "class": 1, "level": 61, "melee_hit_rating": 10000, "expertise_rating": 10000 },
+    { "id": "hero75", "race": 1, "class": 1, "level": 75, "melee_hit_rating": 10000, "expertise_rating": 10000 },
+    { "id": "hero8", "race": 1, "class": 1, "level": 8, "melee_hit_rating": 10000, "expertise_rating": 10000 },
+    { "id": "unscaled62", "race": 1, "class": 1, "level": 62, "melee_hit_rating": 10000, "expertise_rating": 10000 }
+  ],
+  "creatures": [
+    { "id": "rake61", "owner": "hero61", "entry": 5807, "level": 10, "health": 1, "distance": 2 },
+    { "id": "rake75", "owner": "hero75", "entry": 5807, "level": 10, "health": 1, "distance": 3 },
+    { "id": "rake8", "owner": "hero8", "entry": 5807, "level": 10, "health": 1, "distance": 4 },
+    { "id": "unscaled_rake", "owner": "unscaled62", "entry": 5807, "level": 10, "health": 1, "distance": 1 }
+  ],
+  "steps": [
+    { "action": "wait", "label": "Let spawn AI settle", "ms": 2000 },
+    { "action": "level_scaling_packet", "actor": "hero61", "value": 1 },
+    { "action": "level_scaling_packet", "actor": "hero75", "value": 1 },
+    { "action": "level_scaling_packet", "actor": "hero8", "value": 1 },
+    { "action": "level_scaling_packet", "actor": "unscaled62", "value": 0 },
+    { "action": "wait", "label": "Let the scaling choices apply on the next player update", "ms": 1000 },
+
+    { "action": "attack", "actor": "hero61", "target": "rake61" },
+    { "action": "assert", "actor": "rake61", "metric": "alive", "equals": 0, "within_ms": 30000 },
+    { "action": "loot_creature", "actor": "hero61", "target": "rake61" },
+    { "action": "assert", "label": "The corpse holds the written Lionfur Armor", "actor": "hero61", "metric": "loot_entry", "item": 17922, "equals": 17922 },
+    { "action": "loot_slot", "actor": "hero61", "item": 17922 },
+    { "action": "assert", "label": "At 61 the armor takes the client's item level 86", "actor": "hero61", "metric": "carried_item_scaling_level", "item": 17922, "equals": 86, "within_ms": 2000 },
+    { "action": "assert", "label": "The 86 row requires level 61", "actor": "hero61", "metric": "carried_item_required_level", "item": 17922, "equals": 61 },
+    { "action": "assert", "label": "The 86 row carries 655 armor", "actor": "hero61", "metric": "carried_item_armor", "item": 17922, "equals": 655 },
+    { "action": "close_loot", "actor": "hero61" },
+
+    { "action": "attack", "actor": "hero75", "target": "rake75" },
+    { "action": "assert", "actor": "rake75", "metric": "alive", "equals": 0, "within_ms": 30000 },
+    { "action": "loot_creature", "actor": "hero75", "target": "rake75" },
+    { "action": "assert", "label": "The corpse holds the written Lionfur Armor", "actor": "hero75", "metric": "loot_entry", "item": 17922, "equals": 17922 },
+    { "action": "loot_slot", "actor": "hero75", "item": 17922 },
+    { "action": "assert", "label": "At 75 the armor stays on the client's last row, 105", "actor": "hero75", "metric": "carried_item_scaling_level", "item": 17922, "equals": 105, "within_ms": 2000 },
+    { "action": "assert", "label": "The 105 row requires level 70", "actor": "hero75", "metric": "carried_item_required_level", "item": 17922, "equals": 70 },
+    { "action": "assert", "label": "The 105 row carries 1028 armor", "actor": "hero75", "metric": "carried_item_armor", "item": 17922, "equals": 1028 },
+    { "action": "close_loot", "actor": "hero75" },
+
+    { "action": "attack", "actor": "hero8", "target": "rake8" },
+    { "action": "assert", "actor": "rake8", "metric": "alive", "equals": 0, "within_ms": 30000 },
+    { "action": "loot_creature", "actor": "hero8", "target": "rake8" },
+    { "action": "assert", "label": "The corpse holds the written Lionfur Armor", "actor": "hero8", "metric": "loot_entry", "item": 17922, "equals": 17922 },
+    { "action": "loot_slot", "actor": "hero8", "item": 17922 },
+    { "action": "assert", "label": "The looted armor is carried", "actor": "hero8", "metric": "carried_item_level", "item": 17922, "equals": 10, "within_ms": 2000 },
+    { "action": "assert", "label": "An item written above the level 8 looter gets no scaling level", "actor": "hero8", "metric": "carried_item_scaling_level", "item": 17922, "equals": 0 },
+    { "action": "assert", "label": "It keeps its written required level 5", "actor": "hero8", "metric": "carried_item_required_level", "item": 17922, "equals": 5 },
+    { "action": "assert", "label": "It keeps its written 108 armor", "actor": "hero8", "metric": "carried_item_armor", "item": 17922, "equals": 108 },
+    { "action": "close_loot", "actor": "hero8" },
+
+    { "action": "attack", "actor": "unscaled62", "target": "unscaled_rake" },
+    { "action": "assert", "actor": "unscaled_rake", "metric": "alive", "equals": 0, "within_ms": 30000 },
+    { "action": "loot_creature", "actor": "unscaled62", "target": "unscaled_rake" },
+    { "action": "assert", "label": "The corpse holds the written Lionfur Armor", "actor": "unscaled62", "metric": "loot_entry", "item": 17922, "equals": 17922 },
+    { "action": "loot_slot", "actor": "unscaled62", "item": 17922 },
+    { "action": "assert", "label": "The looted armor is carried", "actor": "unscaled62", "metric": "carried_item_level", "item": 17922, "equals": 10, "within_ms": 2000 },
+    { "action": "assert", "label": "With scaling off the armor gets no scaling level", "actor": "unscaled62", "metric": "carried_item_scaling_level", "item": 17922, "equals": 0 },
+    { "action": "assert", "label": "It keeps its written required level 5", "actor": "unscaled62", "metric": "carried_item_required_level", "item": 17922, "equals": 5 },
+    { "action": "assert", "label": "It keeps its written 108 armor", "actor": "unscaled62", "metric": "carried_item_armor", "item": 17922, "equals": 108 },
+    { "action": "close_loot", "actor": "unscaled62" }
+  ]
+}
