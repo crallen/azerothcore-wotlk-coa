@@ -71,7 +71,9 @@ def main():
           "Frost Presence's tooltip reads all three bonuses from 48905")
     presence = read(PRESENCE).split("class spell_dk_presence", 1)[-1].split("\n};", 1)[0]
     frost = presence.split("void HandleImprovedFrostPresence", 1)[-1].split("void HandleImprovedUnholyPresence")[0]
-    check(re.search(r"GetId\(\) == SPELL_DK_FROST_PRESENCE\)\s*target->CastSpell\(target, "
+    # wow-realms: copy binding compares by the stock id, GetSpellInfo()->StockId(), and marks the line.
+    check(re.search(r"(?:GetId\(\)|GetSpellInfo\(\)->StockId\(\)) == SPELL_DK_FROST_PRESENCE\)\s*(?://[^\n]*\s*)?"
+                    r"target->CastSpell\(target, "
                     r"SPELL_DK_FROST_PRESENCE_BONUS_EFFECTS, true\)", frost) is not None and
           "RemoveAura(SPELL_DK_FROST_PRESENCE_BONUS_EFFECTS)" in presence and
           f"SPELL_DK_FROST_PRESENCE_BONUS_EFFECTS       = {FROST_PRESENCE_BONUS}," in read(PRESENCE),
