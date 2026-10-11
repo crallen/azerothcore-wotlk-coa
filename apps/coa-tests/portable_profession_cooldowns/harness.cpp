@@ -89,6 +89,7 @@ struct SpellInfo
     uint32 CastingTimeIndex = 7;
 
     uint32 GetCategory() const { return Category; }
+    uint32 StockId() const { return Id; } // wow-realms: copy binding, no copies here
     bool IsAutoRepeatRangedSpell() const { return false; }
     bool IsCooldownStartedOnEvent() const { return false; }
     template<class T>
@@ -139,6 +140,12 @@ SpellCategoryStore sSpellsByCategoryStore;
 
 struct Spell { };
 struct Player;
+
+// wow-realms: copy binding; with no copies a spell resolves to itself.
+namespace Realms
+{
+    uint32 ForPlayer(Player const*, uint32 spellId) { return spellId; }
+}
 
 struct ScriptMgr
 {

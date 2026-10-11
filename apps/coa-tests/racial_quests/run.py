@@ -61,7 +61,7 @@ struct Creature : Unit
     void RemoveUnitFlag(uint32) { rescued=true; }
     void SetStandState(uint32) { }
 };
-struct SpellInfo { uint32 Id=0; std::array<uint32,3> SpellFamilyFlags{}; };
+struct SpellInfo { uint32 Id=0; std::array<uint32,3> SpellFamilyFlags{}; uint32 StockId() const { return Id; } };
 struct Survivor
 {
     Creature creature;
