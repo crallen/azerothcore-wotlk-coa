@@ -115,21 +115,58 @@ TEST(AscensionItemLadder, MissingLevelsUseTheClosestRowBelow)
     EXPECT_EQ(ladder.At(29)->Stats[0].ItemStatValue, 200);
 }
 
-TEST(AscensionItemLadder, RowsAboveLevelSixtyFiveAreIgnored)
+// wow-realms: the ladder keeps the client's rows up to 105, its last (character level 70).
+TEST(AscensionItemLadder, RowsAboveTheClientsLastAreIgnored)
 {
-    ItemLadder::Ladder const ladder({ RowAt(65, 650), RowAt(86, 860), RowAt(105, 1050) });
+    ItemLadder::Ladder const ladder({ RowAt(65, 650), RowAt(86, 860), RowAt(105, 1050), RowAt(106, 1060) });
 
-    EXPECT_EQ(ladder.At(100)->Level, 65u);
-    EXPECT_TRUE(ItemLadder::Ladder({ RowAt(86, 860) }).Empty());
+    EXPECT_EQ(ladder.At(100)->Level, 86u);
+    EXPECT_EQ(ladder.At(110)->Level, 105u);
+    EXPECT_TRUE(ItemLadder::Ladder({ RowAt(106, 1060) }).Empty());
     EXPECT_EQ(ItemLadder::Ladder().At(10), nullptr);
 }
 
-TEST(AscensionItemLadder, DropLevelIsTheLooterLevelPlusOffsetWithinOneToSixtyFive)
+TEST(AscensionItemLadder, DropLevelIsTheLooterLevelPlusOffsetWithinOneToOneHundredFive)
 {
     EXPECT_EQ(ItemLadder::DropLevel(37, 0), 37);
     EXPECT_EQ(ItemLadder::DropLevel(37, -2), 35);
     EXPECT_EQ(ItemLadder::DropLevel(1, -5), 1);
-    EXPECT_EQ(ItemLadder::DropLevel(64, 5), 65);
+    EXPECT_EQ(ItemLadder::DropLevel(64, 5), 69);
+    EXPECT_EQ(ItemLadder::DropLevel(80, 30), 105);
+}
+
+// wow-realms: a looter above 60 takes the client's item level for its level, 71 to 80 the 105 row.
+TEST(AscensionItemLadder, DropKeyIsTheLooterLevelUpToSixtyThenTheClientsItemLevel)
+{
+    EXPECT_EQ(ItemLadder::DropKey(60, false), 60u);
+    EXPECT_EQ(ItemLadder::DropKey(61, false), 86u);
+    EXPECT_EQ(ItemLadder::DropKey(62, false), 88u);
+    EXPECT_EQ(ItemLadder::DropKey(70, false), 105u);
+    EXPECT_EQ(ItemLadder::DropKey(75, false), 110u);
+    EXPECT_EQ(ItemLadder::ClampLevel(ItemLadder::DropKey(75, false)), 105);
+    EXPECT_EQ(ItemLadder::DropKey(81, false), 115u);
+}
+
+TEST(AscensionItemLadder, DropKeyWithLevelKeysIsTheClientKeyAtEveryLevel)
+{
+    EXPECT_EQ(ItemLadder::DropKey(30, true), 33u);
+}
+
+// wow-realms: native item scaling only raises an item above its written item level.
+TEST(AscensionItemLadder, RaisedLevelIsTheClampedKeyAboveTheWrittenItemLevel)
+{
+    EXPECT_EQ(ItemLadder::RaisedLevel(11, 10), 11);
+    EXPECT_EQ(ItemLadder::RaisedLevel(30, 10), 30);
+    EXPECT_EQ(ItemLadder::RaisedLevel(86, 10), 86);
+    EXPECT_EQ(ItemLadder::RaisedLevel(110, 10), 105);
+}
+
+TEST(AscensionItemLadder, RaisedLevelIsZeroAtOrBelowTheWrittenItemLevel)
+{
+    EXPECT_EQ(ItemLadder::RaisedLevel(10, 10), 0);
+    EXPECT_EQ(ItemLadder::RaisedLevel(58, 111), 0);
+    EXPECT_EQ(ItemLadder::RaisedLevel(88, 111), 0);
+    EXPECT_EQ(ItemLadder::RaisedLevel(110, 111), 0);
 }
 
 TEST(AscensionItemLadder, OnlyStaticWeaponsAndArmorScale)
@@ -306,7 +343,8 @@ TEST(AscensionItemLadder, DropBaseAndClampedLevels)
     EXPECT_EQ(ItemLadder::DropBase(1, -5), 1u);
     EXPECT_EQ(ItemLadder::DropBase(255, 5), 255u);
     EXPECT_EQ(ItemLadder::ClampLevel(0), 1);
-    EXPECT_EQ(ItemLadder::ClampLevel(86), ItemLadder::MaxLevel);
+    EXPECT_EQ(ItemLadder::ClampLevel(86), 86);
+    EXPECT_EQ(ItemLadder::ClampLevel(106), ItemLadder::MaxLevel);
 }
 
 TEST(AscensionItemLadder, StockRowAnswersTheAuthoredItem)

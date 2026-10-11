@@ -95,6 +95,22 @@ uint8 ClampLevel(uint32 key)
     return uint8(std::clamp<uint32>(key, 1, MaxLevel));
 }
 
+// wow-realms: past a base of 60 (the looter's level plus LootLevelOffset) the key is the client's item level for
+// base; keys for 71 to 80 run past 105, and ClampLevel, not DropKey, caps them at the 105 row.
+uint32 DropKey(uint32 base, bool levelKeys)
+{
+    if (levelKeys)
+        return ClientKey(base);
+    return base <= 60 ? base : ClientKey(std::min(base, 80u));
+}
+
+// wow-realms: an item written at or above the scaling level keeps its written stats.
+uint8 RaisedLevel(uint32 key, uint32 itemLevel)
+{
+    uint8 const level = ClampLevel(key);
+    return level > itemLevel ? level : 0;
+}
+
 uint32 ClientKey(uint32 level)
 {
     static constexpr std::array<uint8, 20> AboveSixty = { 25, 26, 28, 30, 31, 32, 32, 33, 34, 35,
