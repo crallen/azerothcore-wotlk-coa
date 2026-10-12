@@ -97,6 +97,16 @@ float GetAscensionMaxHealthFromStatBonus(Player const& player)
 
     return bonus;
 }
+
+// wow-realms: Path of Duality: Stat Buff grants attack power equal to the higher of Strength and
+// Agility, but its flat attack power aura carries 0 points, so a Hero on the path had none.
+float GetPathOfDualityAttackPowerBonus(Player const& player)
+{
+    if (!player.HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF))
+        return 0.0f;
+
+    return std::max(player.GetStat(STAT_STRENGTH), player.GetStat(STAT_AGILITY));
+}
 }
 
 /*#######################################
@@ -185,7 +195,8 @@ bool Player::UpdateStats(Stats stat)
     if (stat == STAT_STRENGTH)
     {
         UpdateAttackPowerAndDamage(false);
-        if (HasAuraTypeWithMiscvalue(SPELL_AURA_MOD_RANGED_ATTACK_POWER_OF_STAT_PERCENT, stat))
+        if (HasAuraTypeWithMiscvalue(SPELL_AURA_MOD_RANGED_ATTACK_POWER_OF_STAT_PERCENT, stat) ||
+            HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF))
             UpdateAttackPowerAndDamage(true);
     }
     else if (stat == STAT_AGILITY)
@@ -643,6 +654,8 @@ void Player::UpdateAttackPowerAndDamage(bool ranged)
             AuraEffectList const& mRAPbyStat = GetAuraEffectsByType(SPELL_AURA_MOD_RANGED_ATTACK_POWER_OF_STAT_PERCENT);
             for (AuraEffectList::const_iterator i = mRAPbyStat.begin(); i != mRAPbyStat.end(); ++i)
                 attPowerMod += CalculatePct(GetStat(Stats((*i)->GetMiscValue())), (*i)->GetAmount());
+
+            attPowerMod += GetPathOfDualityAttackPowerBonus(*this);
         }
     }
     else
@@ -650,6 +663,8 @@ void Player::UpdateAttackPowerAndDamage(bool ranged)
         AuraEffectList const& mAPbyStat = GetAuraEffectsByType(SPELL_AURA_MOD_ATTACK_POWER_OF_STAT_PERCENT);
         for (AuraEffectList::const_iterator i = mAPbyStat.begin(); i != mAPbyStat.end(); ++i)
             attPowerMod += CalculatePct(GetStat(Stats((*i)->GetMiscValue())), (*i)->GetAmount());
+
+        attPowerMod += GetPathOfDualityAttackPowerBonus(*this);
 
         AuraEffectList const& mAPbyArmor = GetAuraEffectsByType(SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR);
         for (AuraEffectList::const_iterator iter = mAPbyArmor.begin(); iter != mAPbyArmor.end(); ++iter)

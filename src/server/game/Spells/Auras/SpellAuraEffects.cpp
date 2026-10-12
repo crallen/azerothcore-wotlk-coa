@@ -5472,6 +5472,16 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
     if (GetId() == 84866 && target->IsPlayer() && (mode & AURA_EFFECT_HANDLE_REAL))
         target->ToPlayer()->UpdateSpellDamageAndHealingBonus();
 
+    // wow-realms: Path of Duality's 0-point attack power aura refreshes nothing, so its
+    // stat-based attack power and spell power follow this dummy on and off.
+    if (GetId() == SPELL_PATH_OF_DUALITY_STAT_BUFF && target->IsPlayer() && (mode & AURA_EFFECT_HANDLE_REAL))
+    {
+        Player* player = target->ToPlayer();
+        player->UpdateAttackPowerAndDamage(false);
+        player->UpdateAttackPowerAndDamage(true);
+        player->UpdateSpellDamageAndHealingBonus();
+    }
+
     Unit* caster = GetCaster();
 
     if (mode & AURA_EFFECT_HANDLE_REAL)

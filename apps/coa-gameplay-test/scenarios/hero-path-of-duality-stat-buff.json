@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "name": "A Hero on Path of Duality gains attack power from its higher of Strength and Agility, and 75% more spell power",
+  "contract": "Path of Duality 129243 links Path of Duality: Stat Buff 820054: \"Spell Power gained from items and effects is increased by 75%. Your attack power is increased by your Strength or Agility, whichever is highest.\" Effect 0 is Ascension's flat attack power aura 344 at 0 points and effect 2 a dummy, so the core supplies both: melee and ranged attack power rise by the higher stat and follow it, and spell power from items is multiplied by 1.75. A Hero has no other stat term in its attack power, so without the path its attack power does not move with Strength. Coppercloth Gloves 4767 carry 4 spell power.",
+  "timeout_ms": 90000,
+  "players": [
+    {"id": "hero", "race": 1, "class": 10, "level": 10}
+  ],
+  "steps": [
+    {"action": "wait", "label": "Let login hooks settle", "ms": 3000},
+    {"action": "equip", "actor": "hero", "item": 4767, "slot": 9},
+    {"action": "unlearn", "actor": "hero", "spell": 129243},
+    {"action": "assert", "label": "Without the path the Stat Buff is gone", "actor": "hero", "metric": "aura", "spell": 820054, "equals": 0, "within_ms": 3000},
+    {"action": "snapshot", "label": "Attack power without the path", "actor": "hero", "metric": "attack_power", "save_as": "ap0"},
+    {"action": "snapshot", "label": "Ranged attack power without the path", "actor": "hero", "metric": "ranged_attack_power", "save_as": "rap0"},
+    {"action": "snapshot", "label": "Holy spell power without the path", "actor": "hero", "metric": "spell_power", "school": 1, "save_as": "sp0"},
+    {"action": "learn", "actor": "hero", "spell": 804728},
+    {"action": "assert", "label": "Without the path, Strength adds no attack power", "actor": "hero", "metric": "attack_power", "relative_to": "ap0", "equals": 0, "within_ms": 3000},
+    {"action": "unlearn", "actor": "hero", "spell": 804728},
+
+    {"action": "learn", "actor": "hero", "spell": 129243},
+    {"action": "assert", "label": "Path of Duality links its Stat Buff", "actor": "hero", "metric": "aura", "spell": 820054, "equals": 1, "within_ms": 3000},
+    {"action": "assert", "label": "The Stat Buff's attack power aura carries 0 points", "actor": "hero", "metric": "aura_amount", "spell": 820054, "effect": 0, "equals": 0},
+    {"action": "assert", "label": "Melee attack power rises by the higher of Strength and Agility", "actor": "hero", "metric": "attack_power", "relative_to": "ap0", "min": 15, "max": 60, "within_ms": 3000},
+    {"action": "assert", "label": "Ranged attack power rises by the same stat", "actor": "hero", "metric": "ranged_attack_power", "relative_to": "rap0", "min": 15, "max": 60, "within_ms": 3000},
+    {"action": "assert", "label": "Spell power from the gloves is 75% higher", "actor": "hero", "metric": "spell_power", "school": 1, "ratio_to": "sp0", "min": 1.6, "max": 1.8, "within_ms": 3000},
+    {"action": "snapshot", "label": "Attack power on the path", "actor": "hero", "metric": "attack_power", "save_as": "ap1"},
+    {"action": "snapshot", "label": "Ranged attack power on the path", "actor": "hero", "metric": "ranged_attack_power", "save_as": "rap1"},
+
+    {"action": "learn", "actor": "hero", "spell": 804728},
+    {"action": "assert", "label": "Powerful Grip's 25 Strength raise melee attack power with it", "actor": "hero", "metric": "attack_power", "relative_to": "ap1", "min": 15, "max": 25, "within_ms": 3000},
+    {"action": "assert", "label": "and ranged attack power", "actor": "hero", "metric": "ranged_attack_power", "relative_to": "rap1", "min": 15, "max": 25, "within_ms": 3000},
+    {"action": "unlearn", "actor": "hero", "spell": 804728},
+
+    {"action": "unlearn", "actor": "hero", "spell": 129243},
+    {"action": "assert", "label": "Leaving the path removes its attack power", "actor": "hero", "metric": "attack_power", "relative_to": "ap0", "equals": 0, "within_ms": 3000},
+    {"action": "assert", "label": "and its ranged attack power", "actor": "hero", "metric": "ranged_attack_power", "relative_to": "rap0", "equals": 0, "within_ms": 3000},
+    {"action": "assert", "label": "and its spell power", "actor": "hero", "metric": "spell_power", "school": 1, "relative_to": "sp0", "equals": 0, "within_ms": 3000}
+  ]
+}
