@@ -192,6 +192,7 @@ public:
     [[nodiscard]] std::uint32_t RankOf(std::uint32_t entryId) const;
     [[nodiscard]] bool Has(std::uint32_t entryId) const;
     [[nodiscard]] bool HasGroup(std::uint32_t group, std::uint32_t exceptId) const;
+    [[nodiscard]] bool Granted(Row const& row) const;
 
     [[nodiscard]] std::uint32_t AEBudget() const;
     [[nodiscard]] std::uint32_t TEBudget() const;

@@ -44,6 +44,9 @@ void Check(bool value, char const* name)
 constexpr std::uint32_t PURIFY = 102;
 constexpr std::uint32_t FERAL_SHAPESHIFT_MASTERY = 42016;
 constexpr std::uint32_t BEAR_FORM = 42083;
+constexpr std::uint32_t LIVE_FERAL_SHAPESHIFT_MASTERY = 1370;
+constexpr std::uint32_t LIVE_BEAR_FORM = 2855;
+constexpr std::uint32_t LIVE_CAT_FORM = 2728;
 constexpr std::uint32_t TAME_BEAST_ABILITIES = 40308;
 constexpr std::uint32_t DOMINATE_UNDEAD = 41916;
 constexpr std::uint32_t PATH_OF_STRENGTH = 1149;
@@ -121,6 +124,58 @@ int main(int, char** argv)
         "the mastery hands over Bear Form, which costs nothing");
     Check(druid.GlobalAE(0) == catalog.Find(FERAL_SHAPESHIFT_MASTERY)->AECost,
         "only the mastery is charged");
+
+    Realm live;
+    live.Live = true;
+    Row const* liveMastery = catalog.Find(LIVE_FERAL_SHAPESHIFT_MASTERY);
+    Row const* liveBear = catalog.Find(LIVE_BEAR_FORM);
+    Row const* liveCat = catalog.Find(LIVE_CAT_FORM);
+    Check(liveMastery && liveBear && liveCat && liveBear->Masteries[0] == LIVE_FERAL_SHAPESHIFT_MASTERY &&
+            liveCat->Masteries[0] == LIVE_FERAL_SHAPESHIFT_MASTERY,
+        "the live Bear Form and Cat Form name the live Feral Shapeshift Mastery");
+    if (!liveMastery || !liveBear || !liveCat)
+        return 1;
+    Build const liveBearAlone(catalog, live, 12, { { LIVE_BEAR_FORM, 1 } });
+    Check(Build(catalog, live, 12).ValidateLearn(LIVE_BEAR_FORM, nullptr) == LEARN_OK &&
+            liveBearAlone.GlobalAE(0) == 1 && !liveBearAlone.Granted(*liveBear),
+        "on a live realm Bear Form without its mastery is learnable as a paid entry");
+    Build liveDruid(catalog, live, 12, { { LIVE_FERAL_SHAPESHIFT_MASTERY, 1 } });
+    liveDruid.AutoLearn(nullptr);
+    Check(liveDruid.RankOf(LIVE_BEAR_FORM) == 1 && liveDruid.RankOf(LIVE_CAT_FORM) == 1,
+        "on a live realm the mastery hands over Bear Form and Cat Form");
+    Check(liveDruid.GlobalAE(0) == liveMastery->AECost, "on a live realm only the mastery is charged");
+    ApplyCheck const liveUpload = CheckApply(Build(catalog, live, 12),
+        { { LIVE_BEAR_FORM, 1 }, { LIVE_FERAL_SHAPESHIFT_MASTERY, 1 } }, nullptr, {});
+    Check(liveUpload.Result == UPDATE_OK && Holds(liveUpload.Entries, LIVE_BEAR_FORM, 1) &&
+            Build(catalog, live, 12, liveUpload.Entries).GlobalAE(0) == liveMastery->AECost,
+        "on a live realm an upload naming Bear Form before its mastery applies and charges the mastery alone");
+    std::vector<Entry> const liveGuide = FitGuide(catalog, live, 80, HERO_CLASS, GuideEntries(catalog, live, 80,
+        HERO_CLASS, { { liveBear->Spells[0], 10 }, { liveCat->Spells[0], 10 }, { liveMastery->Spells[0], 10 } }, 2),
+        {});
+    Check(liveGuide.size() == 3 && Holds(liveGuide, LIVE_FERAL_SHAPESHIFT_MASTERY, 1) &&
+            Holds(liveGuide, LIVE_BEAR_FORM, 1) && Holds(liveGuide, LIVE_CAT_FORM, 1) &&
+            Build(catalog, live, 80, liveGuide).GlobalAE(0) == liveMastery->AECost &&
+            CheckApply(Build(catalog, live, 80), liveGuide, nullptr, {}).Result == UPDATE_OK,
+        "a followed build listing the forms before their live mastery holds all three for the mastery's cost");
+    Build spentDown(catalog, live, 20);
+    std::vector<Entry> spentEntries;
+    for (std::uint32_t id : catalog.RowOrder)
+    {
+        Row const& row = catalog.Rows.at(id);
+        if (spentDown.RemainingAE() <= 1)
+            break;
+        if (row.AECost && row.AECost < spentDown.RemainingAE() && !row.Group && !row.Has(ROW_MASTERY) &&
+            !row.Masteries[0] && spentDown.ValidateLearn(id, nullptr) == LEARN_OK)
+        {
+            spentDown.AddRank(id);
+            spentEntries.push_back({ id, 1 });
+        }
+    }
+    std::vector<Entry> const tightGuide = FitGuide(catalog, live, 20, HERO_CLASS,
+        { { LIVE_BEAR_FORM, 1 }, { LIVE_CAT_FORM, 1 }, { LIVE_FERAL_SHAPESHIFT_MASTERY, 1 } }, spentEntries);
+    Check(spentDown.RemainingAE() == liveMastery->AECost && Holds(tightGuide, LIVE_FERAL_SHAPESHIFT_MASTERY, 1) &&
+            Holds(tightGuide, LIVE_BEAR_FORM, 1) && Holds(tightGuide, LIVE_CAT_FORM, 1),
+        "a followed build with only the mastery's essence left learns the mastery before the forms it lists first");
 
     Check(Build(catalog, realm, 20).ValidateLearn(TAME_BEAST_ABILITIES, nullptr) == LEARN_NOT_ENOUGH_INVESTED_AE,
         "a taming ability needs essence invested first");
