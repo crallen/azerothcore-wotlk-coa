@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "name": "Light's Breach champions keep a bounded number of Forgotten Depths Slayers alive",
+  "contract": "At Light's Breach in Icecrown (phase 64), each Argent Champion 30188 (npc_llod_generic) summons three Forgotten Depths Slayers 30593 eight seconds after it resets, and sometimes a Frostbrood Destroyer 30575. The adds despawn only 15 seconds out of combat, and the battle with the champions never ends, so a champion that tracked none of them added three more each time it respawned and the pile grew for as long as anyone kept the cells updating. A champion tracks its adds, despawns them when it resets or dies and then summons three fresh ones, so it never keeps more than three Slayers alive, and the champions around the player at most 24 between them; without that the count passes 60 within five minutes (64 to 94 measured).",
+  "timeout_ms": 420000,
+  "players": [
+    {"id": "p", "race": 1, "class": 1, "level": 80}
+  ],
+  "location": {"map": 571, "x": 6156.0, "y": 143.0, "z": 373.5, "o": 0},
+  "steps": [
+    {"action": "wait", "label": "Let login hooks settle", "ms": 3000},
+    {"action": "set_phase", "label": "See the battle's phase", "actor": "p", "value": 64},
+    {"action": "assert", "label": "The champions are around the player", "actor": "p", "metric": "nearby_creature_count", "entry": 30188, "min": 8, "within_ms": 10000},
+    {"action": "wait", "label": "Let the champions die and respawn for five minutes", "ms": 300000},
+    {"action": "set_phase", "label": "See the battle's phase again", "actor": "p", "value": 64},
+    {"action": "assert", "label": "The Slayers have not piled up", "actor": "p", "metric": "nearby_creature_count", "entry": 30593, "max": 40}
+  ]
+}
