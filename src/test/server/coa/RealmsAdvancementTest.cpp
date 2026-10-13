@@ -19,6 +19,11 @@ constexpr std::uint32_t COA_ROW = 2000;
 constexpr std::uint32_t CRUELTY = 12380;
 constexpr std::uint32_t BOOMING_VOICE = 12378;
 constexpr std::uint32_t RETAINED_ROW = 3000;
+constexpr std::uint32_t MASTERY_ROW = 4000;
+constexpr std::uint32_t MEMBER_ROW = 4001;
+constexpr std::uint32_t LATE_MEMBER_ROW = 4002;
+constexpr std::uint32_t LEVEL_20_SINK_ROW = 4003;
+constexpr std::uint32_t LEVEL_20_AE = 40;
 constexpr std::uint32_t LEVEL_20_UNLEARN = 71 * 20;
 
 Row TalentRow(std::uint32_t entryId, std::uint32_t classType, std::uint32_t tab, std::uint32_t ranks,
@@ -37,6 +42,20 @@ Row TalentRow(std::uint32_t entryId, std::uint32_t classType, std::uint32_t tab,
     return row;
 }
 
+Row AbilityRow(std::uint32_t entryId, std::uint32_t classType, std::uint32_t level, std::uint32_t flags)
+{
+    Row row;
+    row.EntryId = entryId;
+    row.Type = ENTRY_ABILITY;
+    row.ClassType = classType;
+    row.AECost = 1;
+    row.RequiredLevel = level;
+    row.Flags = flags;
+    row.Realms[0] = true;
+    row.Spells[0] = entryId * 10 + 1;
+    return row;
+}
+
 class RealmsAdvancementTest : public ::testing::Test
 {
 protected:
@@ -52,6 +71,16 @@ protected:
         Row retained = TalentRow(RETAINED_ROW, REBORN_WARRIOR, FURY, 1, 10);
         retained.Flags = ROW_RETAINED;
         Add(retained);
+        Add(AbilityRow(MASTERY_ROW, HERO_TREE, 1, ROW_MASTERY));
+        Row member = AbilityRow(MEMBER_ROW, HERO_TREE, 1, ROW_AUTOMATIC);
+        member.Masteries[0] = MASTERY_ROW;
+        Add(member);
+        Row lateMember = AbilityRow(LATE_MEMBER_ROW, HERO_TREE, 20, ROW_AUTOMATIC);
+        lateMember.Masteries[0] = MASTERY_ROW;
+        Add(lateMember);
+        Row sink = AbilityRow(LEVEL_20_SINK_ROW, HERO_TREE, 1, 0);
+        sink.AECost = LEVEL_20_AE - 1;
+        Add(sink);
         for (std::uint32_t level = 1; level <= 80; ++level)
         {
             catalog.Budget[HERO_CLASS].push_back({ level, 20 + level, level > 9 ? level - 9 : 0 });
@@ -150,6 +179,110 @@ TEST_F(RealmsAdvancementTest, TreeTabsGiveAMisspelledPageTheTabNoOtherPageTook)
         { { 8, "Combat" }, { 9, "Subtlety" }, { 10, "Assassination" } }, { "Assassination", "Combat", "Subtley" });
     EXPECT_FALSE(rogue.ByName);
     EXPECT_EQ(rogue.Tabs, (Realms::TreeTabIds{ 10, 8, 9 }));
+}
+
+TEST_F(RealmsAdvancementTest, AMasteryGrantsItsMembersForItsOwnCost)
+{
+    Build const base(catalog, hero, 10);
+    ApplyCheck const check = CheckApply(base, { { MASTERY_ROW, 1 } }, nullptr, {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    Build built(base);
+    built.SetEntries(check.Entries);
+    built.AutoLearn(nullptr);
+    EXPECT_EQ(built.Entries().size(), 2u);
+    EXPECT_TRUE(built.Has(MASTERY_ROW));
+    EXPECT_TRUE(built.Has(MEMBER_ROW));
+    EXPECT_EQ(built.GlobalAE(0), 1u);
+    EXPECT_EQ(built.RemainingAE(), 29u);
+}
+
+TEST_F(RealmsAdvancementTest, MembersListedBeforeTheirMasteryAreAccepted)
+{
+    Build const base(catalog, hero, 10);
+    ApplyCheck const check = CheckApply(base, { { MEMBER_ROW, 1 }, { MASTERY_ROW, 1 } }, nullptr, {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    EXPECT_EQ(Build(catalog, hero, 10, check.Entries).GlobalAE(0), 1u);
+}
+
+TEST_F(RealmsAdvancementTest, ALateMemberWaitsForItsLevel)
+{
+    Build early(catalog, hero, 10, { { MASTERY_ROW, 1 } });
+    EXPECT_EQ(early.AutoLearn(nullptr), 1u);
+    EXPECT_TRUE(early.Has(MEMBER_ROW));
+    EXPECT_FALSE(early.Has(LATE_MEMBER_ROW));
+    Build later(catalog, hero, 20, early.Entries());
+    EXPECT_EQ(later.AutoLearn(nullptr), 1u);
+    EXPECT_TRUE(later.Has(LATE_MEMBER_ROW));
+    EXPECT_EQ(later.GlobalAE(0), 1u);
+}
+
+TEST_F(RealmsAdvancementTest, AMemberBoughtBeforeItsMasteryBecomesFree)
+{
+    Build const base(catalog, hero, 10, { { MEMBER_ROW, 1 } });
+    EXPECT_EQ(base.GlobalAE(0), 1u);
+    ApplyCheck const check = CheckApply(base, { { MEMBER_ROW, 1 }, { MASTERY_ROW, 1 } }, nullptr, {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    EXPECT_EQ(Build(catalog, hero, 10, check.Entries).GlobalAE(0), 1u);
+}
+
+TEST_F(RealmsAdvancementTest, AMemberWithoutItsMasteryIsPaid)
+{
+    ApplyCheck const check = CheckApply(Build(catalog, hero, 10), { { MEMBER_ROW, 1 } }, nullptr, {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    Build const built(catalog, hero, 10, check.Entries);
+    EXPECT_EQ(built.GlobalAE(0), 1u);
+    EXPECT_FALSE(built.Granted(catalog.Rows.at(MEMBER_ROW)));
+}
+
+TEST_F(RealmsAdvancementTest, RemovingAMasteryPricesTheMasteryNotItsMembers)
+{
+    Build const base(catalog, hero, 20, { { MASTERY_ROW, 1 }, { MEMBER_ROW, 1 } });
+    ApplyCheck const check = CheckApply(base, {}, nullptr, { 2 * LEVEL_20_UNLEARN, 0 });
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    EXPECT_EQ(check.Money, LEVEL_20_UNLEARN);
+    EXPECT_TRUE(check.Entries.empty());
+}
+
+TEST_F(RealmsAdvancementTest, AMemberLeftOutWhenItsMasteryIsBoughtLeavesFree)
+{
+    Build const base(catalog, hero, 20, { { MEMBER_ROW, 1 } });
+    ApplyCheck const check = CheckApply(base, { { MASTERY_ROW, 1 } }, nullptr, { LEVEL_20_UNLEARN, 0 });
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    EXPECT_EQ(check.Money, 0u);
+    EXPECT_EQ(check.Marks, 0u);
+    Build built(base);
+    built.SetEntries(check.Entries);
+    built.AutoLearn(nullptr);
+    EXPECT_TRUE(built.Has(MEMBER_ROW));
+}
+
+TEST_F(RealmsAdvancementTest, ALateMemberArrivesWithNoEssenceLeft)
+{
+    Build build(catalog, hero, 20, { { MASTERY_ROW, 1 }, { MEMBER_ROW, 1 }, { LEVEL_20_SINK_ROW, 1 } });
+    ASSERT_EQ(build.RemainingAE(), 0u);
+    EXPECT_EQ(build.AutoLearn(nullptr), 1u);
+    EXPECT_TRUE(build.Has(LATE_MEMBER_ROW));
+}
+
+TEST_F(RealmsAdvancementTest, MembersBeforeTheirMasteryOnAFullBudgetAreReordered)
+{
+    ApplyCheck const check = CheckApply(Build(catalog, hero, 20),
+        { { MEMBER_ROW, 1 }, { LEVEL_20_SINK_ROW, 1 }, { MASTERY_ROW, 1 } }, nullptr, {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    ASSERT_EQ(check.Entries.size(), 3u);
+    EXPECT_EQ(check.Entries[0].EntryId, MASTERY_ROW);
+    EXPECT_EQ(Build(catalog, hero, 20, check.Entries).RemainingAE(), 0u);
+}
+
+TEST_F(RealmsAdvancementTest, ADroppedMemberReturnsWhileItsMasteryStays)
+{
+    Build const base(catalog, hero, 10, { { MASTERY_ROW, 1 }, { MEMBER_ROW, 1 } });
+    ApplyCheck const check = CheckApply(base, { { MASTERY_ROW, 1 } }, nullptr, {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    Build built(base);
+    built.SetEntries(check.Entries);
+    built.AutoLearn(nullptr);
+    EXPECT_TRUE(built.Has(MEMBER_ROW));
 }
 
 class RealmsTalentPickerTest : public RealmsAdvancementTest

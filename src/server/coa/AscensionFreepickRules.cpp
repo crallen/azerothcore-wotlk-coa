@@ -285,6 +285,11 @@ bool Build::HasGroup(std::uint32_t group, std::uint32_t exceptId) const
     });
 }
 
+bool Build::Granted(Row const& row) const
+{
+    return std::any_of(row.Masteries.begin(), row.Masteries.end(), [this](std::uint32_t id) { return id && Has(id); });
+}
+
 Essence const* Build::BudgetRow() const
 {
     auto const budget = _catalog->Budget.find(_class);
@@ -324,7 +329,7 @@ std::uint32_t Build::Spent(bool talentEssence, std::uint32_t Row::* minimumField
     for (Entry const& entry : _entries)
     {
         Row const* row = _catalog->Find(entry.EntryId);
-        if (!row)
+        if (!row || Granted(*row))
             continue;
         bool const matches = (classType < 0 || row->ClassType == std::uint32_t(classType)) &&
             (tab < 0 || row->Tab == std::uint32_t(tab));
@@ -455,9 +460,9 @@ bool Build::BuildRuleOk(std::uint32_t slot, Row const& row) const
             return !row.ClassPointInvestment ||
                 row.ClassPointInvestment <= ClassPoints(row.ClassType, row.ClassPointInvestment);
         case LEARN_MISSING_AE:
-            return !row.AECost || row.AECost <= RemainingAE();
+            return !row.AECost || row.AECost <= RemainingAE() || Granted(row);
         case LEARN_MISSING_TE:
-            return !row.TECost || row.TECost <= RemainingTE();
+            return !row.TECost || row.TECost <= RemainingTE() || Granted(row);
         case LEARN_MODE_RESTRICTED:
             return !row.Has(ROW_MODE_RESTRICTED);
         default:
@@ -566,7 +571,7 @@ std::uint32_t Build::AutoLearn(UnitCheck const& unit)
         for (std::uint32_t entryId : _catalog->RowOrder)
         {
             Row const& row = _catalog->Rows.at(entryId);
-            if (!row.Has(ROW_AUTOMATIC) || row.AECost || row.TECost)
+            if (!row.Has(ROW_AUTOMATIC) || ((row.AECost || row.TECost) && !Granted(row)))
                 continue;
             while (ValidateLearn(entryId, unit) == LEARN_OK)
             {
@@ -640,11 +645,17 @@ std::vector<Entry> FitGuide(Catalog const& catalog, Realm const& realm, std::uin
         if (!replaced)
             base.push_back(entry);
     }
+    std::vector<Entry> ordered = guide;
+    std::stable_partition(ordered.begin(), ordered.end(), [&catalog](Entry const& entry)
+    {
+        Row const* row = catalog.Find(entry.EntryId);
+        return row && row->Has(ROW_MASTERY);
+    });
     Build build(catalog, realm, level, base, classId);
     for (bool progress = true; progress;)
     {
         progress = false;
-        for (Entry const& entry : guide)
+        for (Entry const& entry : ordered)
             while (build.RankOf(entry.EntryId) < entry.Rank && build.ValidateLearn(entry.EntryId, nullptr) == LEARN_OK)
             {
                 build.AddRank(entry.EntryId);
@@ -708,7 +719,10 @@ ApplyCheck CheckApply(Build const& base, std::vector<Entry> const& upload, UnitC
     std::uint32_t marksLeft = purse.Marks;
     for (Entry const& entry : removed)
     {
-        UnlearnCost const cost = CostToUnlearn(base.Level(), *catalog.Find(entry.EntryId));
+        Row const& row = *catalog.Find(entry.EntryId);
+        if (base.Granted(row) || target.Granted(row))
+            continue;
+        UnlearnCost const cost = CostToUnlearn(base.Level(), row);
         if (!cost.Money && !cost.Marks)
             continue;
         if (cost.Marks && marksLeft >= cost.Marks)
