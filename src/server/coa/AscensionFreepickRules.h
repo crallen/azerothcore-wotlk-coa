@@ -3,6 +3,7 @@
 #ifndef ASCENSION_FREEPICK_RULES_H
 #define ASCENSION_FREEPICK_RULES_H
 
+#include "ClientDBC.h"
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -150,6 +151,9 @@ struct Catalog
 };
 
 bool LoadCatalog(Catalog& catalog);
+std::vector<std::uint32_t> PriceLiveMasteries(Catalog& catalog);
+std::vector<std::uint8_t> RowPatch(ClientDBC::Record const& record, Row const& row);
+std::vector<std::vector<std::uint8_t>> RowPatches(Catalog const& catalog, std::vector<std::uint32_t> const& entryIds);
 
 struct Realm
 {
@@ -173,6 +177,12 @@ struct Entry
 };
 
 using UnitCheck = std::function<bool(std::uint32_t slot, Row const& row)>;
+
+struct Restored
+{
+    std::uint32_t Repaired = 0;
+    std::uint32_t Learned = 0;
+};
 
 class Build
 {
@@ -209,6 +219,8 @@ public:
     void SetEntries(std::vector<Entry> entries) { _entries = std::move(entries); }
     void AddRank(std::uint32_t entryId);
     void Remove(std::uint32_t entryId);
+    std::uint32_t RepairMembers();
+    Restored Restore(UnitCheck const& unit);
     std::uint32_t AutoLearn(UnitCheck const& unit);
 
 private:
@@ -260,6 +272,7 @@ struct GuideSpell
 Row const* RowBySpell(Catalog const& catalog, Realm const& realm, std::uint32_t classId, std::uint32_t spellId);
 std::vector<Entry> GuideEntries(Catalog const& catalog, Realm const& realm, std::uint32_t level, std::uint32_t classId,
     std::vector<GuideSpell> const& spells, std::uint32_t primaryStat);
+std::vector<Entry> GuideKeeps(Catalog const& catalog, std::vector<Entry> const& entries);
 std::vector<Entry> FitGuide(Catalog const& catalog, Realm const& realm, std::uint32_t level, std::uint32_t classId,
     std::vector<Entry> const& guide, std::vector<Entry> const& kept);
 

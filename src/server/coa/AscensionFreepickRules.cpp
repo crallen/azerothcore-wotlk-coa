@@ -61,7 +61,44 @@ enum AdvancementByte : std::uint32_t
     ADVANCEMENT_REALMS                 = 483,
     ADVANCEMENT_MASTERIES              = 616,
     ADVANCEMENT_END                    = 628,
+    ADVANCEMENT_RECORD_SIZE            = 692,
 };
+
+enum class WireField { Dword, Byte, String };
+
+struct RowPatchRun
+{
+    WireField Field;
+    std::uint32_t Offset;
+    std::uint32_t Count;
+    std::uint32_t Stride;
+};
+
+constexpr std::array<RowPatchRun, 23> ROW_PATCH_ORDER = { {
+    { WireField::Dword, ADVANCEMENT_ID, 1, 4 },
+    { WireField::String, ADVANCEMENT_TYPE, 1, 4 },
+    { WireField::Dword, ADVANCEMENT_REQUIRED, 14, 4 },
+    { WireField::String, 64, 1, 4 },
+    { WireField::Dword, 68, 3, 4 },
+    { WireField::String, 80, 1, 4 },
+    { WireField::Dword, 84, 3, 4 },
+    { WireField::String, 96, 1, 4 },
+    { WireField::Dword, 100, 22, 4 },
+    { WireField::String, ADVANCEMENT_NAME, 1, 4 },
+    { WireField::String, 256, 1, 4 },
+    { WireField::String, 260, 1, 4 },
+    { WireField::String, 328, 1, 4 },
+    { WireField::Byte, 396, 2, 1 },
+    { WireField::Dword, 398, 4, 4 },
+    { WireField::Byte, ADVANCEMENT_STARTING_NODE, 1, 1 },
+    { WireField::Dword, ADVANCEMENT_CONNECTED, CONNECTED_COUNT, 4 },
+    { WireField::String, ADVANCEMENT_EXPANSION, 1, 4 },
+    { WireField::Dword, ADVANCEMENT_FLAGS, 1, 4 },
+    { WireField::Byte, ADVANCEMENT_REALMS, REALM_COUNT, 1 },
+    { WireField::Dword, 488, 29, 4 },
+    { WireField::String, 604, 3, 4 },
+    { WireField::Dword, ADVANCEMENT_MASTERIES, 19, 4 },
+} };
 
 enum ClassTypeDwordField : std::uint32_t
 {
@@ -144,6 +181,28 @@ Row ReadRow(ClientDBC::Record const& record)
     return row;
 }
 
+std::uint32_t PricedDword(ClientDBC::Record const& record, Row const& row, std::uint32_t offset)
+{
+    if (offset == ADVANCEMENT_AE_COST)
+        return row.AECost;
+    if (offset == ADVANCEMENT_TE_COST)
+        return row.TECost;
+    if (offset == ADVANCEMENT_REQUIRED_LEVEL)
+        return row.RequiredLevel;
+    if (offset >= ADVANCEMENT_REQUIRED && offset < ADVANCEMENT_REQUIRED + 4 * REQUIRED_COUNT)
+        return row.Required[(offset - ADVANCEMENT_REQUIRED) / 4];
+    return record.GetUInt32At(offset);
+}
+
+std::uint32_t LastCatalogMastery(Catalog const& catalog, Row const& row)
+{
+    std::uint32_t mastery = 0;
+    for (std::uint32_t id : row.Masteries)
+        if (id && catalog.Find(id))
+            mastery = id;
+    return mastery;
+}
+
 std::vector<std::uint32_t> RankUnits(std::vector<Entry> const& entries)
 {
     std::vector<std::uint32_t> units;
@@ -219,6 +278,83 @@ bool LoadCatalog(Catalog& catalog)
         loaded.Rows.size(), loaded.ClassTypes.size(), loaded.Budget[HERO_CLASS].size());
     catalog = std::move(loaded);
     return !catalog.Rows.empty() && catalog.Budget.contains(HERO_CLASS) && !catalog.Budget.at(HERO_CLASS).empty();
+}
+
+std::vector<std::uint32_t> PriceLiveMasteries(Catalog& catalog)
+{
+    std::vector<std::uint32_t> priced;
+    std::unordered_map<std::uint32_t, std::uint32_t> lowestMember;
+    for (std::uint32_t entryId : catalog.RowOrder)
+    {
+        Row& row = catalog.Rows.at(entryId);
+        std::uint32_t const mastery = LastCatalogMastery(catalog, row);
+        auto const slot = std::find(row.Required.begin(), row.Required.end(), 0u);
+        if (!row.Has(ROW_AUTOMATIC) || !row.Realms[0] || !mastery || slot == row.Required.end())
+            continue;
+        *slot = mastery;
+        row.AECost = 0;
+        row.TECost = 0;
+        priced.push_back(entryId);
+        auto const lowest = lowestMember.try_emplace(mastery, row.RequiredLevel).first;
+        lowest->second = std::min(lowest->second, row.RequiredLevel);
+    }
+    for (std::uint32_t entryId : catalog.RowOrder)
+    {
+        Row& mastery = catalog.Rows.at(entryId);
+        auto const lowest = lowestMember.find(entryId);
+        if (lowest == lowestMember.end() || mastery.RequiredLevel <= lowest->second)
+            continue;
+        mastery.RequiredLevel = lowest->second;
+        priced.push_back(entryId);
+    }
+    return priced;
+}
+
+std::vector<std::uint8_t> RowPatch(ClientDBC::Record const& record, Row const& row)
+{
+    std::vector<std::uint8_t> bytes;
+    for (RowPatchRun const& run : ROW_PATCH_ORDER)
+        for (std::uint32_t index = 0; index < run.Count; ++index)
+        {
+            std::uint32_t const offset = run.Offset + index * run.Stride;
+            if (run.Field == WireField::Byte)
+                bytes.push_back(record.GetUInt8(offset));
+            else if (run.Field == WireField::String)
+            {
+                std::string_view const text = record.GetStringAt(offset);
+                bytes.insert(bytes.end(), text.begin(), text.end());
+                bytes.push_back(0);
+            }
+            else
+            {
+                std::uint32_t const value = PricedDword(record, row, offset);
+                for (std::uint32_t shift : { 0u, 8u, 16u, 24u })
+                    bytes.push_back(std::uint8_t(value >> shift));
+            }
+        }
+    return bytes;
+}
+
+std::vector<std::vector<std::uint8_t>> RowPatches(Catalog const& catalog, std::vector<std::uint32_t> const& entryIds)
+{
+    ClientDBC advancement;
+    if (entryIds.empty() ||
+        !advancement.Load(GetClientDBCPath("CharacterAdvancement.dbc"), ADVANCEMENT_RECORD_SIZE / 4))
+        return {};
+    if (advancement.GetRecordSize() != ADVANCEMENT_RECORD_SIZE)
+    {
+        LOG_ERROR("coa", "CharacterAdvancement.dbc records are {} bytes; its row patch is written for {}",
+            advancement.GetRecordSize(), std::uint32_t(ADVANCEMENT_RECORD_SIZE));
+        return {};
+    }
+    std::unordered_map<std::uint32_t, std::uint32_t> recordOf;
+    for (std::uint32_t index = 0; index < advancement.GetRecordCount(); ++index)
+        recordOf.emplace(advancement.GetRecord(index).GetUInt32At(ADVANCEMENT_ID), index);
+    std::vector<std::vector<std::uint8_t>> patches;
+    for (std::uint32_t entryId : entryIds)
+        if (Row const* row = catalog.Find(entryId); row && recordOf.contains(entryId))
+            patches.push_back(RowPatch(advancement.GetRecord(recordOf.at(entryId)), *row));
+    return patches;
 }
 
 bool Visible(Catalog const& catalog, Realm const& realm, Row const& row)
@@ -552,6 +688,31 @@ bool Build::Reorder(UnitCheck const& unit, Entry& failed, std::uint32_t& result)
     return true;
 }
 
+std::uint32_t Build::RepairMembers()
+{
+    std::uint32_t repaired = 0;
+    for (Entry const& entry : std::vector<Entry>(_entries))
+    {
+        Row const* row = _catalog->Find(entry.EntryId);
+        std::uint32_t const mastery = row ? LastCatalogMastery(*_catalog, *row) : 0;
+        if (!mastery || Granted(*row))
+            continue;
+        if (ValidateLearn(mastery, nullptr) == LEARN_OK)
+            _entries.insert(std::find_if(_entries.begin(), _entries.end(),
+                [&entry](Entry const& held) { return held.EntryId == entry.EntryId; }), Entry{ mastery, 1 });
+        else
+            Remove(entry.EntryId);
+        ++repaired;
+    }
+    return repaired;
+}
+
+Restored Build::Restore(UnitCheck const& unit)
+{
+    std::uint32_t const repaired = RepairMembers();
+    return { repaired, AutoLearn(unit) };
+}
+
 std::uint32_t Build::AutoLearn(UnitCheck const& unit)
 {
     std::uint32_t added = 0;
@@ -620,6 +781,16 @@ std::vector<Entry> GuideEntries(Catalog const& catalog, Realm const& realm, std:
     return build.Entries();
 }
 
+std::vector<Entry> GuideKeeps(Catalog const& catalog, std::vector<Entry> const& entries)
+{
+    std::vector<Entry> kept;
+    for (Entry const& entry : entries)
+        if (Row const* row = catalog.Find(entry.EntryId); row && !LastCatalogMastery(catalog, *row) &&
+            (row->Group == 1 || row->Has(ROW_RETAINED) || (row->Has(ROW_AUTOMATIC) && !row->AECost && !row->TECost)))
+            kept.push_back(entry);
+    return kept;
+}
+
 std::vector<Entry> FitGuide(Catalog const& catalog, Realm const& realm, std::uint32_t level, std::uint32_t classId,
     std::vector<Entry> const& guide, std::vector<Entry> const& kept)
 {
@@ -635,13 +806,24 @@ std::vector<Entry> FitGuide(Catalog const& catalog, Realm const& realm, std::uin
         if (!replaced)
             base.push_back(entry);
     }
+    Build build(catalog, realm, level, base, classId);
     std::vector<Entry> ordered = guide;
+    for (Entry const& entry : guide)
+    {
+        Row const* row = catalog.Find(entry.EntryId);
+        std::uint32_t const mastery = row ? LastCatalogMastery(catalog, *row) : 0;
+        bool const listed = row && std::any_of(ordered.begin(), ordered.end(), [row](Entry const& other)
+        {
+            return std::find(row->Masteries.begin(), row->Masteries.end(), other.EntryId) != row->Masteries.end();
+        });
+        if (mastery && !listed && !build.Granted(*row))
+            ordered.push_back({ mastery, 1 });
+    }
     std::stable_partition(ordered.begin(), ordered.end(), [&catalog](Entry const& entry)
     {
         Row const* row = catalog.Find(entry.EntryId);
         return row && row->Has(ROW_MASTERY);
     });
-    Build build(catalog, realm, level, base, classId);
     for (bool progress = true; progress;)
     {
         progress = false;
