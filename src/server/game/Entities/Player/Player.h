@@ -1136,6 +1136,11 @@ public:
 
     [[nodiscard]] bool IsClass(Classes playerClass, ClassContext context = CLASS_CONTEXT_NONE) const override;
 
+    // wow-realms: free-pick Hero stats, a Hero building its own class on a classless realm; set by AscensionFreepick.
+    using FreepickHeroCheck = bool (*)(Player const* player);
+    AC_GAME_API static void SetFreepickHeroCheck(FreepickHeroCheck check);
+    [[nodiscard]] bool IsFreepickHero() const;
+
     void SetInWater(bool apply);
 
     [[nodiscard]] bool IsInWater() const override { return m_isInWater; }
