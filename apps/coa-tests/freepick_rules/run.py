@@ -26,6 +26,7 @@ from client_data import dbc_dir  # noqa: E402
 MAIN = r"""
 #include "AscensionFreepickRules.h"
 #include "DBCStores.h"
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <unordered_map>
@@ -47,6 +48,9 @@ constexpr std::uint32_t BEAR_FORM = 42083;
 constexpr std::uint32_t LIVE_FERAL_SHAPESHIFT_MASTERY = 1370;
 constexpr std::uint32_t LIVE_BEAR_FORM = 2855;
 constexpr std::uint32_t LIVE_CAT_FORM = 2728;
+constexpr std::uint32_t PRESENCE_MASTERY = 1322;
+constexpr std::uint32_t AIR_TOTEM_MASTERY = 1317;
+constexpr std::uint32_t BLOOD_PRESENCE = 1169;
 constexpr std::uint32_t TAME_BEAST_ABILITIES = 40308;
 constexpr std::uint32_t DOMINATE_UNDEAD = 41916;
 constexpr std::uint32_t PATH_OF_STRENGTH = 1149;
@@ -81,6 +85,15 @@ int main(int, char** argv)
     DbcDirectory = std::string(argv[1]) + "/";
     Catalog catalog;
     Check(LoadCatalog(catalog), "the advancement, class type and essence tables load");
+    std::vector<std::uint32_t> const priced = PriceLiveMasteries(catalog);
+    std::size_t const loweredMasteries = std::count_if(priced.begin(), priced.end(),
+        [&catalog](std::uint32_t id) { return catalog.Find(id)->Has(ROW_MASTERY); });
+    std::printf("re-priced %zu live mastery members and lowered %zu masteries\n", priced.size() - loweredMasteries,
+        loweredMasteries);
+    Check(priced.size() == 85 && loweredMasteries == 2 && RowPatches(catalog, priced).size() == 85,
+        "the 83 live members of a catalog mastery and 2 masteries above them are patched as the client prices them");
+    Check(catalog.Find(PRESENCE_MASTERY)->RequiredLevel == 1 && catalog.Find(AIR_TOTEM_MASTERY)->RequiredLevel == 30,
+        "Presence Mastery is lowered to Blood Presence's level 1 and Air Totem Mastery to level 30");
 
     Realm realm;
     realm.Live = true;
@@ -135,20 +148,25 @@ int main(int, char** argv)
         "the live Bear Form and Cat Form name the live Feral Shapeshift Mastery");
     if (!liveMastery || !liveBear || !liveCat)
         return 1;
-    Build const liveBearAlone(catalog, live, 12, { { LIVE_BEAR_FORM, 1 } });
-    Check(Build(catalog, live, 12).ValidateLearn(LIVE_BEAR_FORM, nullptr) == LEARN_OK &&
-            liveBearAlone.GlobalAE(0) == 1 && !liveBearAlone.Granted(*liveBear),
-        "on a live realm Bear Form without its mastery is learnable as a paid entry");
+    Check(Build(catalog, live, 12).ValidateLearn(LIVE_BEAR_FORM, nullptr) == LEARN_MISSING_REQUIRED_ID,
+        "on a live realm Bear Form without its mastery is refused");
     Build liveDruid(catalog, live, 12, { { LIVE_FERAL_SHAPESHIFT_MASTERY, 1 } });
     liveDruid.AutoLearn(nullptr);
     Check(liveDruid.RankOf(LIVE_BEAR_FORM) == 1 && liveDruid.RankOf(LIVE_CAT_FORM) == 1,
         "on a live realm the mastery hands over Bear Form and Cat Form");
-    Check(liveDruid.GlobalAE(0) == liveMastery->AECost, "on a live realm only the mastery is charged");
+    Check(liveDruid.GlobalAE(0) == 1, "on a live realm only the mastery's 1 AE is charged");
+    std::vector<std::vector<std::uint8_t>> const patches = RowPatches(catalog, { LIVE_BEAR_FORM });
+    std::string const bearText = "Bear Form" + std::string(1, '\0') + "Ability_Racial_BearForm" + std::string(3, '\0');
+    Check(patches.size() == 1 &&
+            std::search(patches[0].begin(), patches[0].end(), bearText.begin(), bearText.end()) != patches[0].end(),
+        "the live Bear Form row patch carries its name and icon, and the two empty texts after them, from its record");
     ApplyCheck const liveUpload = CheckApply(Build(catalog, live, 12),
         { { LIVE_BEAR_FORM, 1 }, { LIVE_FERAL_SHAPESHIFT_MASTERY, 1 } }, nullptr, {});
     Check(liveUpload.Result == UPDATE_OK && Holds(liveUpload.Entries, LIVE_BEAR_FORM, 1) &&
-            Build(catalog, live, 12, liveUpload.Entries).GlobalAE(0) == liveMastery->AECost,
-        "on a live realm an upload naming Bear Form before its mastery applies and charges the mastery alone");
+            PositionOf(liveUpload.Entries, LIVE_FERAL_SHAPESHIFT_MASTERY) <
+                PositionOf(liveUpload.Entries, LIVE_BEAR_FORM) &&
+            Build(catalog, live, 12, liveUpload.Entries).GlobalAE(0) == 1,
+        "on a live realm an upload naming Bear Form before its mastery is reordered and charges the mastery's 1 AE");
     std::vector<Entry> const liveGuide = FitGuide(catalog, live, 80, HERO_CLASS, GuideEntries(catalog, live, 80,
         HERO_CLASS, { { liveBear->Spells[0], 10 }, { liveCat->Spells[0], 10 }, { liveMastery->Spells[0], 10 } }, 2),
         {});
@@ -157,6 +175,36 @@ int main(int, char** argv)
             Build(catalog, live, 80, liveGuide).GlobalAE(0) == liveMastery->AECost &&
             CheckApply(Build(catalog, live, 80), liveGuide, nullptr, {}).Result == UPDATE_OK,
         "a followed build listing the forms before their live mastery holds all three for the mastery's cost");
+    ApplyCheck const bloodPresence = CheckApply(Build(catalog, live, 1),
+        FitGuide(catalog, live, 1, HERO_CLASS, { { BLOOD_PRESENCE, 1 } }, {}), nullptr, {});
+    Check(bloodPresence.Result == UPDATE_OK && Holds(bloodPresence.Entries, PRESENCE_MASTERY, 1) &&
+            Holds(bloodPresence.Entries, BLOOD_PRESENCE, 1) &&
+            Build(catalog, live, 1, bloodPresence.Entries).GlobalAE(0) == 2,
+        "a level 1 Hero learns Blood Presence through Presence Mastery for 2 AE");
+    UnitCheck const anyone = [](std::uint32_t, Row const&) { return true; };
+    auto const followGuide = [&catalog, &live, &anyone](Build const& stored, std::vector<GuideSpell> const& spells)
+    {
+        ApplyCheck check = CheckApply(stored, FitGuide(catalog, live, stored.Level(), HERO_CLASS,
+            GuideEntries(catalog, live, stored.Level(), HERO_CLASS, spells, 2), GuideKeeps(catalog, stored.Entries())),
+            anyone, { 1000000, 0 });
+        Build built(stored);
+        built.SetEntries(check.Entries);
+        built.AutoLearn(anyone);
+        check.Entries = built.Entries();
+        return check;
+    };
+    ApplyCheck const bearGuide = followGuide(Build(catalog, live, 20), { { liveBear->Spells[0], 10 } });
+    Check(bearGuide.Result == UPDATE_OK && bearGuide.Entries.size() == 3 &&
+            Holds(bearGuide.Entries, LIVE_FERAL_SHAPESHIFT_MASTERY, 1) && Holds(bearGuide.Entries, LIVE_BEAR_FORM, 1) &&
+            Holds(bearGuide.Entries, LIVE_CAT_FORM, 1) && Build(catalog, live, 20, bearGuide.Entries).GlobalAE(0) == 1,
+        "a followed build listing Bear Form's spell alone ends holding the mastery and both forms for 1 AE");
+    Build feralHero(catalog, live, 20, { { LIVE_FERAL_SHAPESHIFT_MASTERY, 1 } });
+    feralHero.AutoLearn(anyone);
+    ApplyCheck const leftGuide = followGuide(feralHero, { { PURIFY_SPELL, 12 } });
+    Check(feralHero.Entries().size() == 3 && leftGuide.Result == UPDATE_OK && Holds(leftGuide.Entries, PURIFY, 1) &&
+            !Holds(leftGuide.Entries, LIVE_FERAL_SHAPESHIFT_MASTERY, 1) &&
+            !Holds(leftGuide.Entries, LIVE_BEAR_FORM, 1) && !Holds(leftGuide.Entries, LIVE_CAT_FORM, 1),
+        "a character holding the live mastery follows a build without it, which drops the mastery and both forms");
     Build spentDown(catalog, live, 20);
     std::vector<Entry> spentEntries;
     for (std::uint32_t id : catalog.RowOrder)
