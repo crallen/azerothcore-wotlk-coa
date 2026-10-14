@@ -302,18 +302,105 @@ TEST_F(RealmsAdvancementTest, PricingLiveMembersFreesThemAndRequiresTheirMastery
     catalog.Rows.at(MEMBER_ROW).TECost = 1;
     catalog.Rows.at(LATE_MEMBER_ROW).Required[0] = HERO_ROW;
 
-    EXPECT_EQ(PriceLiveMasteries(catalog), (std::vector<std::uint32_t>{ MEMBER_ROW, LATE_MEMBER_ROW }));
+    EXPECT_EQ(PriceLiveMasteries(catalog), (std::vector<std::uint32_t>{ MASTERY_ROW, MEMBER_ROW, LATE_MEMBER_ROW }));
     Row const& member = catalog.Rows.at(MEMBER_ROW);
     EXPECT_EQ(member.AECost, 0u);
     EXPECT_EQ(member.TECost, 0u);
     EXPECT_EQ(member.Required, (std::array<std::uint32_t, REQUIRED_COUNT>{ MASTERY_ROW, 0, 0 }));
     EXPECT_EQ(catalog.Rows.at(LATE_MEMBER_ROW).Required,
         (std::array<std::uint32_t, REQUIRED_COUNT>{ HERO_ROW, MASTERY_ROW, 0 }));
-    for (std::uint32_t untouched : { ORPHAN_MEMBER_ROW, SEASONAL_MEMBER_ROW, NAMING_ROW, MASTERY_ROW })
+    EXPECT_EQ(catalog.Rows.at(MASTERY_ROW).Required, (std::array<std::uint32_t, REQUIRED_COUNT>{}));
+    for (std::uint32_t untouched : { ORPHAN_MEMBER_ROW, SEASONAL_MEMBER_ROW, NAMING_ROW })
     {
         EXPECT_EQ(catalog.Rows.at(untouched).AECost, 1u) << untouched;
         EXPECT_EQ(catalog.Rows.at(untouched).Required, (std::array<std::uint32_t, REQUIRED_COUNT>{})) << untouched;
     }
+}
+
+TEST_F(RealmsAdvancementTest, PricingRaisesALiveOneAEMasteryToTwoAE)
+{
+    constexpr std::uint32_t SEASONAL_MASTERY_ROW = 4007;
+    constexpr std::uint32_t TWO_AE_MASTERY_ROW = 4008;
+    Row seasonal = AbilityRow(SEASONAL_MASTERY_ROW, HERO_TREE, 1, ROW_MASTERY);
+    seasonal.Realms = { false, true, false, false, false };
+    Add(seasonal);
+    Row twoAE = AbilityRow(TWO_AE_MASTERY_ROW, HERO_TREE, 1, ROW_MASTERY);
+    twoAE.AECost = 2;
+    Add(twoAE);
+
+    EXPECT_EQ(PriceLiveMasteries(catalog), (std::vector<std::uint32_t>{ MASTERY_ROW, MEMBER_ROW, LATE_MEMBER_ROW }));
+    EXPECT_EQ(catalog.Rows.at(MASTERY_ROW).AECost, 2u);
+    EXPECT_EQ(catalog.Rows.at(SEASONAL_MASTERY_ROW).AECost, 1u);
+    EXPECT_EQ(catalog.Rows.at(TWO_AE_MASTERY_ROW).AECost, 2u);
+}
+
+class RealmsTrackingMasteryTest : public RealmsAdvancementTest
+{
+protected:
+    static constexpr std::uint32_t TRACKING_MASTERY = 3042;
+    static constexpr std::uint32_t TRACK_BEASTS = 1379;
+    static constexpr std::uint32_t TRACK_HUMANOIDS = 2944;
+    static constexpr std::uint32_t UNREAD_MASTERY_FLAG = 0x10;
+
+    void SetUp() override
+    {
+        RealmsAdvancementTest::SetUp();
+        Row mastery = AbilityRow(TRACKING_MASTERY, HERO_TREE, 10, UNREAD_MASTERY_FLAG);
+        mastery.AECost = 2;
+        Add(mastery);
+        Row beasts = AbilityRow(TRACK_BEASTS, HERO_TREE, 1, ROW_DISPLAY | ROW_HIDDEN_UNTIL_KNOWN);
+        beasts.AECost = 0;
+        Add(beasts);
+        Row humanoids = AbilityRow(TRACK_HUMANOIDS, HERO_TREE, 10, 0);
+        humanoids.AECost = 2;
+        Add(humanoids);
+        priced = PriceLiveMasteries(catalog);
+    }
+
+    std::vector<std::uint32_t> priced;
+};
+
+TEST_F(RealmsTrackingMasteryTest, PricingReturnsEachChangedRowOnceInIdOrder)
+{
+    EXPECT_EQ(priced, (std::vector<std::uint32_t>{ TRACK_BEASTS, TRACK_HUMANOIDS, TRACKING_MASTERY, MASTERY_ROW,
+        MEMBER_ROW, LATE_MEMBER_ROW }));
+}
+
+TEST_F(RealmsTrackingMasteryTest, TrackingMasteryBecomesATwoAEMasteryAtTrackBeastsLevel)
+{
+    Row const& mastery = catalog.Rows.at(TRACKING_MASTERY);
+    EXPECT_EQ(mastery.Flags, UNREAD_MASTERY_FLAG | ROW_MASTERY);
+    EXPECT_EQ(mastery.AECost, 2u);
+    EXPECT_EQ(mastery.RequiredLevel, 1u);
+}
+
+TEST_F(RealmsTrackingMasteryTest, ATrackBecomesAFreeAutomaticMemberRequiringTrackingMastery)
+{
+    for (std::uint32_t track : { TRACK_BEASTS, TRACK_HUMANOIDS })
+    {
+        Row const& row = catalog.Rows.at(track);
+        EXPECT_FALSE(row.Has(ROW_DISPLAY)) << track;
+        EXPECT_FALSE(row.Has(ROW_HIDDEN_UNTIL_KNOWN)) << track;
+        EXPECT_TRUE(row.Has(ROW_AUTOMATIC)) << track;
+        EXPECT_EQ(row.Masteries, (std::array<std::uint32_t, MASTERY_COUNT>{ TRACKING_MASTERY, 0, 0 })) << track;
+        EXPECT_EQ(row.Required, (std::array<std::uint32_t, REQUIRED_COUNT>{ TRACKING_MASTERY, 0, 0 })) << track;
+        EXPECT_EQ(row.AECost, 0u) << track;
+    }
+    EXPECT_EQ(catalog.Rows.at(TRACK_BEASTS).Flags, std::uint32_t(ROW_AUTOMATIC));
+}
+
+TEST_F(RealmsTrackingMasteryTest, TrackBeastsAloneIsRefusedWithoutTrackingMastery)
+{
+    EXPECT_EQ(Build(catalog, hero, 1).ValidateLearn(TRACK_BEASTS, nullptr), std::uint32_t(LEARN_MISSING_REQUIRED_ID));
+}
+
+TEST_F(RealmsTrackingMasteryTest, TrackingMasteryAutoLearnsTheTracksOfItsLevelForTwoAEInAll)
+{
+    Build build(catalog, hero, 1, { { TRACKING_MASTERY, 1 } });
+    EXPECT_EQ(build.AutoLearn(nullptr), 1u);
+    EXPECT_TRUE(build.Has(TRACK_BEASTS));
+    EXPECT_FALSE(build.Has(TRACK_HUMANOIDS));
+    EXPECT_EQ(build.GlobalAE(0), 2u);
 }
 
 class RealmsLateMasteryTest : public RealmsAdvancementTest
@@ -338,6 +425,8 @@ protected:
 
 TEST_F(RealmsLateMasteryTest, PricingLowersAMasteryAboveItsLowestMemberToThatMembersLevel)
 {
+    catalog.Rows.at(MASTERY_ROW).AECost = 2;
+    catalog.Rows.at(LATE_MASTERY_ROW).AECost = 2;
     std::vector<std::uint32_t> const priced = PriceLiveMasteries(catalog);
     EXPECT_EQ(catalog.Rows.at(LATE_MASTERY_ROW).RequiredLevel, 25u);
     EXPECT_EQ(catalog.Rows.at(MASTERY_ROW).RequiredLevel, 1u);
@@ -380,7 +469,7 @@ TEST_F(RealmsPricedMasteryTest, AMemberListedBeforeItsMasteryIsReordered)
     ASSERT_EQ(check.Result, UPDATE_OK);
     ASSERT_EQ(check.Entries.size(), 2u);
     EXPECT_EQ(check.Entries[0].EntryId, MASTERY_ROW);
-    EXPECT_EQ(Build(catalog, hero, 10, check.Entries).GlobalAE(0), 1u);
+    EXPECT_EQ(Build(catalog, hero, 10, check.Entries).GlobalAE(0), 2u);
 }
 
 TEST_F(RealmsPricedMasteryTest, AMasteryAutoLearnsItsMembersAtNoEssence)
@@ -389,7 +478,7 @@ TEST_F(RealmsPricedMasteryTest, AMasteryAutoLearnsItsMembersAtNoEssence)
     EXPECT_EQ(build.AutoLearn(nullptr), 1u);
     EXPECT_TRUE(build.Has(MEMBER_ROW));
     EXPECT_EQ(catalog.Rows.at(MEMBER_ROW).AECost, 0u);
-    EXPECT_EQ(build.GlobalAE(0), 1u);
+    EXPECT_EQ(build.GlobalAE(0), 2u);
 }
 
 TEST_F(RealmsPricedMasteryTest, RepairAddsTheMasteryAStoredMemberLacks)
@@ -399,7 +488,7 @@ TEST_F(RealmsPricedMasteryTest, RepairAddsTheMasteryAStoredMemberLacks)
     ASSERT_EQ(build.Entries().size(), 3u);
     EXPECT_EQ(build.Entries()[1].EntryId, MASTERY_ROW);
     EXPECT_EQ(build.Entries()[2].EntryId, MEMBER_ROW);
-    EXPECT_EQ(build.GlobalAE(0), 1u);
+    EXPECT_EQ(build.GlobalAE(0), 2u);
 }
 
 TEST_F(RealmsPricedMasteryTest, RepairAddsOneMasteryForTwoOfItsMembers)
@@ -408,7 +497,7 @@ TEST_F(RealmsPricedMasteryTest, RepairAddsOneMasteryForTwoOfItsMembers)
     EXPECT_EQ(build.RepairMembers(), 1u);
     ASSERT_EQ(build.Entries().size(), 3u);
     EXPECT_EQ(build.Entries()[0].EntryId, MASTERY_ROW);
-    EXPECT_EQ(build.GlobalAE(0), 1u);
+    EXPECT_EQ(build.GlobalAE(0), 2u);
 }
 
 TEST_F(RealmsPricedMasteryTest, RestoringAStoredBuildRepairsItsMembersBeforeAutoLearning)
@@ -451,7 +540,7 @@ TEST_F(RealmsPricedMasteryTest, AGuideListingAMemberAloneFitsItsMasteryFirst)
     ASSERT_EQ(fitted.size(), 2u);
     EXPECT_EQ(fitted[0].EntryId, MASTERY_ROW);
     EXPECT_EQ(fitted[1].EntryId, MEMBER_ROW);
-    EXPECT_EQ(Build(catalog, hero, 10, fitted).GlobalAE(0), 1u);
+    EXPECT_EQ(Build(catalog, hero, 10, fitted).GlobalAE(0), 2u);
 }
 
 class RealmsTalentPickerTest : public RealmsAdvancementTest
@@ -836,9 +925,10 @@ TEST(RealmsRowPatchTest, TheClientLayoutSpansTheWholeRecordAndRow)
     EXPECT_EQ(last.Client + 4, CLIENT_ROW_SIZE);
 }
 
-TEST(RealmsRowPatchTest, AWholeRecordReadsBackInTheClientsOrderWithOnlyItsPriceAndLevelChanged)
+TEST(RealmsRowPatchTest, AWholeRecordReadsBackInTheClientsOrderWithOnlyItsCatalogFieldsChanged)
 {
     constexpr std::uint32_t MASTERY = 1370;
+    constexpr std::uint32_t MEMBER_FLAGS = ROW_AUTOMATIC;
     std::string const path = DistinctAdvancementRecord().Write();
     ClientDBC file;
     bool const loaded = file.Load(path, ADVANCEMENT_RECORD_SIZE / 4);
@@ -849,6 +939,8 @@ TEST(RealmsRowPatchTest, AWholeRecordReadsBackInTheClientsOrderWithOnlyItsPriceA
     priced.AECost = 0;
     priced.TECost = 0;
     priced.RequiredLevel = 30;
+    priced.Flags = MEMBER_FLAGS;
+    priced.Masteries = { MASTERY, 0, 0 };
 
     std::vector<std::uint8_t> const bytes = RowPatch(file.GetRecord(0), priced);
     ClientRow const row = PatchReader(bytes).Read();
@@ -856,7 +948,8 @@ TEST(RealmsRowPatchTest, AWholeRecordReadsBackInTheClientsOrderWithOnlyItsPriceA
     ASSERT_FALSE(row.Overran);
     EXPECT_EQ(row.Consumed, bytes.size());
     std::map<std::uint32_t, std::uint32_t> const repriced = { { 0x08, MASTERY }, { 0x0C, 0 }, { 0x10, 0 },
-        { 0x38, 0 }, { 0x3C, 0 }, { 0x68, 30 } };
+        { 0x38, 0 }, { 0x3C, 0 }, { 0x68, 30 }, { 0x124, MEMBER_FLAGS }, { 0x1B0, MASTERY }, { 0x1B4, 0 },
+        { 0x1B8, 0 } };
     for (LayoutField const& field : AdvancementFields())
     {
         if (field.Kind == 'b')
