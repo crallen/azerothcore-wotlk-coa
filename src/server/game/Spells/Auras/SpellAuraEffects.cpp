@@ -5475,7 +5475,8 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
     if (target->IsPlayer() && GetSpellInfo()->Effects[GetEffIndex()].GetItemArmorSubclassMask())
         target->UpdateArmor();
 
-    if ((GetId() == 84866 || GetId() == 820054) && target->IsPlayer() &&
+    // wow-realms: Path of Healing (84867) refreshes the sheet's bonus healing as Path of Intelligence does.
+    if ((GetId() == 84866 || GetId() == 84867 || GetId() == 820054) && target->IsPlayer() &&
         (mode & AURA_EFFECT_HANDLE_REAL))
         target->ToPlayer()->UpdateSpellDamageAndHealingBonus();
 
