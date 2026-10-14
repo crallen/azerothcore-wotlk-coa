@@ -189,9 +189,47 @@ std::uint32_t PricedDword(ClientDBC::Record const& record, Row const& row, std::
         return row.TECost;
     if (offset == ADVANCEMENT_REQUIRED_LEVEL)
         return row.RequiredLevel;
+    if (offset == ADVANCEMENT_FLAGS)
+        return row.Flags;
     if (offset >= ADVANCEMENT_REQUIRED && offset < ADVANCEMENT_REQUIRED + 4 * REQUIRED_COUNT)
         return row.Required[(offset - ADVANCEMENT_REQUIRED) / 4];
+    if (offset >= ADVANCEMENT_MASTERIES && offset < ADVANCEMENT_MASTERIES + 4 * MASTERY_COUNT)
+        return row.Masteries[(offset - ADVANCEMENT_MASTERIES) / 4];
     return record.GetUInt32At(offset);
+}
+
+constexpr std::uint32_t LIVE_MASTERY_AE = 2;
+
+struct MasteryBundle
+{
+    std::uint32_t Mastery;
+    std::array<std::uint32_t, 8> Members;
+};
+
+constexpr MasteryBundle TRACKING_MASTERY = { 3042, { 1379, 1390, 1385, 1383, 1386, 1384, 2944, 2945 } };
+
+void ApplyLiveMasteryData(Catalog& catalog, std::vector<std::uint32_t>& changed)
+{
+    if (auto const mastery = catalog.Rows.find(TRACKING_MASTERY.Mastery); mastery != catalog.Rows.end())
+    {
+        mastery->second.Flags |= ROW_MASTERY;
+        changed.push_back(mastery->first);
+        for (std::uint32_t entryId : TRACKING_MASTERY.Members)
+            if (auto const member = catalog.Rows.find(entryId); member != catalog.Rows.end())
+            {
+                member->second.Flags = (member->second.Flags & ~(ROW_DISPLAY | ROW_HIDDEN_UNTIL_KNOWN)) | ROW_AUTOMATIC;
+                member->second.Masteries[0] = TRACKING_MASTERY.Mastery;
+                changed.push_back(entryId);
+            }
+    }
+    for (std::uint32_t entryId : catalog.RowOrder)
+    {
+        Row& row = catalog.Rows.at(entryId);
+        if (!row.Has(ROW_MASTERY) || !row.Realms[0] || row.AECost == LIVE_MASTERY_AE)
+            continue;
+        row.AECost = LIVE_MASTERY_AE;
+        changed.push_back(entryId);
+    }
 }
 
 std::uint32_t LastCatalogMastery(Catalog const& catalog, Row const& row)
@@ -283,6 +321,7 @@ bool LoadCatalog(Catalog& catalog)
 std::vector<std::uint32_t> PriceLiveMasteries(Catalog& catalog)
 {
     std::vector<std::uint32_t> priced;
+    ApplyLiveMasteryData(catalog, priced);
     std::unordered_map<std::uint32_t, std::uint32_t> lowestMember;
     for (std::uint32_t entryId : catalog.RowOrder)
     {
@@ -307,6 +346,8 @@ std::vector<std::uint32_t> PriceLiveMasteries(Catalog& catalog)
         mastery.RequiredLevel = lowest->second;
         priced.push_back(entryId);
     }
+    std::sort(priced.begin(), priced.end());
+    priced.erase(std::unique(priced.begin(), priced.end()), priced.end());
     return priced;
 }
 

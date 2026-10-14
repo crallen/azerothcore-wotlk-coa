@@ -51,6 +51,9 @@ constexpr std::uint32_t LIVE_CAT_FORM = 2728;
 constexpr std::uint32_t PRESENCE_MASTERY = 1322;
 constexpr std::uint32_t AIR_TOTEM_MASTERY = 1317;
 constexpr std::uint32_t BLOOD_PRESENCE = 1169;
+constexpr std::uint32_t TRACKING_MASTERY = 3042;
+constexpr std::uint32_t TRACK_BEASTS = 1379;
+constexpr std::uint32_t TRACK_BEASTS_SPELL = 1494;
 constexpr std::uint32_t TAME_BEAST_ABILITIES = 40308;
 constexpr std::uint32_t DOMINATE_UNDEAD = 41916;
 constexpr std::uint32_t PATH_OF_STRENGTH = 1149;
@@ -78,6 +81,25 @@ std::size_t PositionOf(std::vector<Entry> const& entries, std::uint32_t id)
             return index;
     return entries.size();
 }
+
+std::uint32_t DwordAt(std::vector<std::uint8_t> const& bytes, std::size_t at)
+{
+    if (at + 4 > bytes.size())
+        return 0;
+    return bytes[at] | bytes[at + 1] << 8 | bytes[at + 2] << 16 | std::uint32_t(bytes[at + 3]) << 24;
+}
+
+std::uint32_t PatchedFlags(std::vector<std::uint8_t> const& patch)
+{
+    std::string const expansion = "EXPANSION_";
+    auto const text = std::search(patch.begin(), patch.end(), expansion.begin(), expansion.end());
+    return DwordAt(patch, std::find(text, patch.end(), 0) - patch.begin() + 1);
+}
+
+std::uint32_t PatchedMastery(std::vector<std::uint8_t> const& patch)
+{
+    return patch.size() < 19 * 4 ? 0 : DwordAt(patch, patch.size() - 19 * 4);
+}
 }
 
 int main(int, char** argv)
@@ -86,12 +108,40 @@ int main(int, char** argv)
     Catalog catalog;
     Check(LoadCatalog(catalog), "the advancement, class type and essence tables load");
     std::vector<std::uint32_t> const priced = PriceLiveMasteries(catalog);
-    std::size_t const loweredMasteries = std::count_if(priced.begin(), priced.end(),
+    std::size_t const pricedMasteries = std::count_if(priced.begin(), priced.end(),
         [&catalog](std::uint32_t id) { return catalog.Find(id)->Has(ROW_MASTERY); });
-    std::printf("re-priced %zu live mastery members and lowered %zu masteries\n", priced.size() - loweredMasteries,
-        loweredMasteries);
-    Check(priced.size() == 85 && loweredMasteries == 2 && RowPatches(catalog, priced).size() == 85,
-        "the 83 live members of a catalog mastery and 2 masteries above them are patched as the client prices them");
+    std::printf("re-priced %zu live mastery members and %zu masteries\n", priced.size() - pricedMasteries,
+        pricedMasteries);
+    Check(priced.size() == 113 && pricedMasteries == 22 && RowPatches(catalog, priced).size() == 113,
+        "the 91 live members of a catalog mastery and 22 masteries are patched as the client prices them");
+    std::size_t liveMasteries = 0, twoAEMasteries = 0;
+    for (auto const& [id, row] : catalog.Rows)
+        if (row.Has(ROW_MASTERY) && row.Realms[0])
+        {
+            ++liveMasteries;
+            twoAEMasteries += row.AECost == 2;
+        }
+    Check(liveMasteries == 22 && twoAEMasteries == 22, "the 21 live masteries and Tracking Mastery all cost 2 AE");
+    Row const* tracking = catalog.Find(TRACKING_MASTERY);
+    std::vector<std::uint32_t> tracks;
+    bool tracksFree = true;
+    for (std::uint32_t id : catalog.RowOrder)
+    {
+        Row const& row = catalog.Rows.at(id);
+        if (std::find(row.Masteries.begin(), row.Masteries.end(), TRACKING_MASTERY) == row.Masteries.end())
+            continue;
+        tracks.push_back(id);
+        tracksFree = tracksFree && !row.AECost &&
+            std::find(row.Required.begin(), row.Required.end(), TRACKING_MASTERY) != row.Required.end();
+    }
+    Check(tracking && tracking->Has(ROW_MASTERY) && tracking->AECost == 2 && tracking->RequiredLevel == 1 &&
+            tracks.size() == 8 && tracksFree,
+        "Tracking Mastery is a 2 AE mastery at level 1 with eight Track members, each free and requiring it");
+    std::vector<std::vector<std::uint8_t>> const trackingPatches =
+        RowPatches(catalog, { TRACKING_MASTERY, TRACK_BEASTS });
+    Check(trackingPatches.size() == 2 && PatchedFlags(trackingPatches[0]) == 0x1010 &&
+            PatchedFlags(trackingPatches[1]) == 0x100000 && PatchedMastery(trackingPatches[1]) == TRACKING_MASTERY,
+        "the Tracking Mastery patch carries flags 0x1010, and Track Beasts' 0x100000 and Tracking Mastery");
     Check(catalog.Find(PRESENCE_MASTERY)->RequiredLevel == 1 && catalog.Find(AIR_TOTEM_MASTERY)->RequiredLevel == 30,
         "Presence Mastery is lowered to Blood Presence's level 1 and Air Totem Mastery to level 30");
 
@@ -154,7 +204,7 @@ int main(int, char** argv)
     liveDruid.AutoLearn(nullptr);
     Check(liveDruid.RankOf(LIVE_BEAR_FORM) == 1 && liveDruid.RankOf(LIVE_CAT_FORM) == 1,
         "on a live realm the mastery hands over Bear Form and Cat Form");
-    Check(liveDruid.GlobalAE(0) == 1, "on a live realm only the mastery's 1 AE is charged");
+    Check(liveDruid.GlobalAE(0) == 2, "on a live realm only the mastery's 2 AE is charged");
     std::vector<std::vector<std::uint8_t>> const patches = RowPatches(catalog, { LIVE_BEAR_FORM });
     std::string const bearText = "Bear Form" + std::string(1, '\0') + "Ability_Racial_BearForm" + std::string(3, '\0');
     Check(patches.size() == 1 &&
@@ -165,8 +215,8 @@ int main(int, char** argv)
     Check(liveUpload.Result == UPDATE_OK && Holds(liveUpload.Entries, LIVE_BEAR_FORM, 1) &&
             PositionOf(liveUpload.Entries, LIVE_FERAL_SHAPESHIFT_MASTERY) <
                 PositionOf(liveUpload.Entries, LIVE_BEAR_FORM) &&
-            Build(catalog, live, 12, liveUpload.Entries).GlobalAE(0) == 1,
-        "on a live realm an upload naming Bear Form before its mastery is reordered and charges the mastery's 1 AE");
+            Build(catalog, live, 12, liveUpload.Entries).GlobalAE(0) == 2,
+        "on a live realm an upload naming Bear Form before its mastery is reordered and charges the mastery's 2 AE");
     std::vector<Entry> const liveGuide = FitGuide(catalog, live, 80, HERO_CLASS, GuideEntries(catalog, live, 80,
         HERO_CLASS, { { liveBear->Spells[0], 10 }, { liveCat->Spells[0], 10 }, { liveMastery->Spells[0], 10 } }, 2),
         {});
@@ -196,8 +246,19 @@ int main(int, char** argv)
     ApplyCheck const bearGuide = followGuide(Build(catalog, live, 20), { { liveBear->Spells[0], 10 } });
     Check(bearGuide.Result == UPDATE_OK && bearGuide.Entries.size() == 3 &&
             Holds(bearGuide.Entries, LIVE_FERAL_SHAPESHIFT_MASTERY, 1) && Holds(bearGuide.Entries, LIVE_BEAR_FORM, 1) &&
-            Holds(bearGuide.Entries, LIVE_CAT_FORM, 1) && Build(catalog, live, 20, bearGuide.Entries).GlobalAE(0) == 1,
-        "a followed build listing Bear Form's spell alone ends holding the mastery and both forms for 1 AE");
+            Holds(bearGuide.Entries, LIVE_CAT_FORM, 1) && Build(catalog, live, 20, bearGuide.Entries).GlobalAE(0) == 2,
+        "a followed build listing Bear Form's spell alone ends holding the mastery and both forms for 2 AE");
+    Build tracker(catalog, live, 1, { { TRACKING_MASTERY, 1 } });
+    tracker.AutoLearn(nullptr);
+    Build trackerAt50(catalog, live, 50, tracker.Entries());
+    trackerAt50.AutoLearn(nullptr);
+    Check(tracker.Entries().size() == 2 && tracker.Has(TRACK_BEASTS) && trackerAt50.Entries().size() == 9,
+        "a level 1 Hero holding Tracking Mastery gets Track Beasts only, and all eight tracks at level 50");
+    ApplyCheck const trackGuide = followGuide(Build(catalog, live, 1), { { TRACK_BEASTS_SPELL, 1 } });
+    Check(catalog.Find(TRACK_BEASTS)->Spells[0] == TRACK_BEASTS_SPELL && trackGuide.Result == UPDATE_OK &&
+            trackGuide.Entries.size() == 2 && Holds(trackGuide.Entries, TRACKING_MASTERY, 1) &&
+            Holds(trackGuide.Entries, TRACK_BEASTS, 1) && Build(catalog, live, 1, trackGuide.Entries).GlobalAE(0) == 2,
+        "a followed build listing Track Beasts' spell alone ends holding it and Tracking Mastery for 2 AE");
     Build feralHero(catalog, live, 20, { { LIVE_FERAL_SHAPESHIFT_MASTERY, 1 } });
     feralHero.AutoLearn(anyone);
     ApplyCheck const leftGuide = followGuide(feralHero, { { PURIFY_SPELL, 12 } });
@@ -210,10 +271,10 @@ int main(int, char** argv)
     for (std::uint32_t id : catalog.RowOrder)
     {
         Row const& row = catalog.Rows.at(id);
-        if (spentDown.RemainingAE() <= 1)
+        if (spentDown.RemainingAE() <= liveMastery->AECost)
             break;
-        if (row.AECost && row.AECost < spentDown.RemainingAE() && !row.Group && !row.Has(ROW_MASTERY) &&
-            !row.Masteries[0] && spentDown.ValidateLearn(id, nullptr) == LEARN_OK)
+        if (row.AECost && row.AECost + liveMastery->AECost <= spentDown.RemainingAE() && !row.Group &&
+            !row.Has(ROW_MASTERY) && !row.Masteries[0] && spentDown.ValidateLearn(id, nullptr) == LEARN_OK)
         {
             spentDown.AddRank(id);
             spentEntries.push_back({ id, 1 });
