@@ -11040,7 +11040,7 @@ int32 Unit::SpellBaseHealingBonusDone(SpellSchoolMask schoolMask)
 
         // ... and attack power
         AdvertisedBenefit += int32(CalculatePct(GetTotalAttackPowerValue(BASE_ATTACK), GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER, schoolMask)));
-        if (HasAura(84866))
+        if (HasAura(84866) || HasAura(84867)) // wow-realms: Path of Healing (84867)
             AdvertisedBenefit = int32(std::clamp<int64>(int64(AdvertisedBenefit) * 2,
                 std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max()));
         else if (HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF)) // wow-realms: 75% more, Path of Duality

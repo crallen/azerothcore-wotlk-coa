@@ -1431,6 +1431,18 @@ bool Player::IsClass(Classes unitClass, ClassContext context) const
         return (getClass() == unitClass);
 }
 
+static Player::FreepickHeroCheck FreepickHeroCheckOf = nullptr; // wow-realms: free-pick Hero stats
+
+void Player::SetFreepickHeroCheck(FreepickHeroCheck check)
+{
+    FreepickHeroCheckOf = check;
+}
+
+bool Player::IsFreepickHero() const
+{
+    return FreepickHeroCheckOf && FreepickHeroCheckOf(this);
+}
+
 void Player::ToggleAFK()
 {
     ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_AFK);
@@ -7388,7 +7400,7 @@ void Player::_ApplyItemBonuses(ItemTemplate const* proto, uint8 slot, bool apply
     }
 
     // Druids get feral AP bonus from weapon dps (also use DPS from ScalingStatValue)
-    if (IsClass(CLASS_DRUID, CLASS_CONTEXT_STATS))
+    if (IsClass(CLASS_DRUID, CLASS_CONTEXT_STATS) || IsFreepickHero()) // wow-realms: free-pick Hero stats
     {
         int32 dpsMod = 0;
         int32 feral_bonus = 0;

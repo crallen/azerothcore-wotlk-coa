@@ -5469,7 +5469,8 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
     if (target->IsPlayer() && GetSpellInfo()->Effects[GetEffIndex()].GetItemArmorSubclassMask())
         target->UpdateArmor();
 
-    if (GetId() == 84866 && target->IsPlayer() && (mode & AURA_EFFECT_HANDLE_REAL))
+    // wow-realms: Path of Healing (84867) refreshes the sheet's bonus healing as Path of Intelligence does.
+    if ((GetId() == 84866 || GetId() == 84867) && target->IsPlayer() && (mode & AURA_EFFECT_HANDLE_REAL))
         target->ToPlayer()->UpdateSpellDamageAndHealingBonus();
 
     // wow-realms: Path of Duality's 0-point attack power aura refreshes nothing, so its

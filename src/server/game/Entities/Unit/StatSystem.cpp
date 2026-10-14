@@ -107,6 +107,74 @@ float GetPathOfDualityAttackPowerBonus(Player const& player)
 
     return std::max(player.GetStat(STAT_STRENGTH), player.GetStat(STAT_AGILITY));
 }
+
+// wow-realms: free-pick Hero stats, the Druid branch's Predatory Strikes terms, shared with a free-pick Hero.
+float GetPredatoryStrikesBonus(Player const& player)
+{
+    // Check if Predatory Strikes is skilled
+    float mLevelMult = 0.0f;
+    float weapon_bonus = 0.0f;
+    if (player.IsInFeralForm())
+    {
+        Unit::AuraEffectList const& mDummy = player.GetAuraEffectsByType(SPELL_AURA_DUMMY);
+        for (Unit::AuraEffectList::const_iterator itr = mDummy.begin(); itr != mDummy.end(); ++itr)
+        {
+            AuraEffect* aurEff = *itr;
+            if (aurEff->GetSpellInfo()->SpellIconID == 1563)
+            {
+                switch (aurEff->GetEffIndex())
+                {
+                case 0: // Predatory Strikes (effect 0)
+                    mLevelMult = CalculatePct(1.0f, aurEff->GetAmount());
+                    break;
+                case 1: // Predatory Strikes (effect 1)
+                    if (Item* mainHand = player.GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND))
+                    {
+                        // also gains % attack power from equipped weapon
+                        ItemTemplate const* proto = mainHand->GetTemplate();
+                        if (!proto)
+                            continue;
+
+                        uint32 ap = proto->getFeralBonus();
+                        // Get AP Bonuses from weapon
+                        for (uint8 i = 0; i < MAX_ITEM_PROTO_STATS; ++i)
+                        {
+                            if (i >= proto->StatsCount)
+                                break;
+
+                            if (proto->ItemStat[i].ItemStatType == ITEM_MOD_ATTACK_POWER)
+                                ap += proto->ItemStat[i].ItemStatValue;
+                        }
+
+                        // Get AP Bonuses from weapon spells
+                        for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
+                        {
+                            // no spell
+                            if (!proto->Spells[i].SpellId || proto->Spells[i].SpellTrigger != ITEM_SPELLTRIGGER_ON_EQUIP)
+                                continue;
+
+                            // check if it is valid spell
+                            SpellInfo const* spellproto = sSpellMgr->GetSpellInfo(proto->Spells[i].SpellId);
+                            if (!spellproto)
+                                continue;
+
+                            for (uint8 j = 0; j < MAX_SPELL_EFFECTS; ++j)
+                                if (spellproto->Effects[j].ApplyAuraName == SPELL_AURA_MOD_ATTACK_POWER)
+                                    ap += spellproto->Effects[j].CalcValue();
+                        }
+
+                        weapon_bonus = CalculatePct(float(ap), aurEff->GetAmount());
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    return (player.GetLevel() * mLevelMult) + weapon_bonus;
+}
 }
 
 /*#######################################
@@ -492,7 +560,7 @@ void Player::UpdateAttackPowerAndDamage(bool ranged)
         index_mod = UNIT_FIELD_RANGED_ATTACK_POWER_MODS;
         index_mult = UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER;
 
-        if (IsClass(CLASS_HUNTER, CLASS_CONTEXT_STATS))
+        if (IsFreepickHero() || IsClass(CLASS_HUNTER, CLASS_CONTEXT_STATS)) // wow-realms: free-pick Hero stats
         {
             val2 = level * 2.0f + GetStat(STAT_AGILITY) - 10.0f;
         }
@@ -523,7 +591,21 @@ void Player::UpdateAttackPowerAndDamage(bool ranged)
     {
         // CoA changelog 2026-07-09, entries 69019-69020, 69036-69038 and 69043, specifies these stat conversions.
         // Only the coefficients are recovered: keep the existing level terms and offsets as compatibility values.
-        if (getClass() == CLASS_BARBARIAN)
+        if (IsFreepickHero()) // wow-realms: free-pick Hero stats, a neutral base its stat path layers onto
+        {
+            val2 = level * 2.0f + GetStat(STAT_STRENGTH) - 20.0f;
+            switch (GetShapeshiftForm())
+            {
+            case FORM_CAT:
+            case FORM_BEAR:
+            case FORM_DIREBEAR:
+                val2 += GetPredatoryStrikesBonus(*this) + m_baseFeralAP;
+                break;
+            default:
+                break;
+            }
+        }
+        else if (getClass() == CLASS_BARBARIAN)
         {
             val2 = level * 3.0f + GetStat(STAT_STRENGTH) + GetStat(STAT_AGILITY) - 20.0f;
         }
@@ -556,79 +638,17 @@ void Player::UpdateAttackPowerAndDamage(bool ranged)
         }
         else if (IsClass(CLASS_DRUID, CLASS_CONTEXT_STATS))
         {
-            // Check if Predatory Strikes is skilled
-            float mLevelMult = 0.0f;
-            float weapon_bonus = 0.0f;
-            if (IsInFeralForm())
-            {
-                Unit::AuraEffectList const& mDummy = GetAuraEffectsByType(SPELL_AURA_DUMMY);
-                for (Unit::AuraEffectList::const_iterator itr = mDummy.begin(); itr != mDummy.end(); ++itr)
-                {
-                    AuraEffect* aurEff = *itr;
-                    if (aurEff->GetSpellInfo()->SpellIconID == 1563)
-                    {
-                        switch (aurEff->GetEffIndex())
-                        {
-                        case 0: // Predatory Strikes (effect 0)
-                            mLevelMult = CalculatePct(1.0f, aurEff->GetAmount());
-                            break;
-                        case 1: // Predatory Strikes (effect 1)
-                            if (Item* mainHand = m_items[EQUIPMENT_SLOT_MAINHAND])
-                            {
-                                // also gains % attack power from equipped weapon
-                                ItemTemplate const* proto = mainHand->GetTemplate();
-                                if (!proto)
-                                    continue;
-
-                                uint32 ap = proto->getFeralBonus();
-                                // Get AP Bonuses from weapon
-                                for (uint8 i = 0; i < MAX_ITEM_PROTO_STATS; ++i)
-                                {
-                                    if (i >= proto->StatsCount)
-                                        break;
-
-                                    if (proto->ItemStat[i].ItemStatType == ITEM_MOD_ATTACK_POWER)
-                                        ap += proto->ItemStat[i].ItemStatValue;
-                                }
-
-                                // Get AP Bonuses from weapon spells
-                                for (uint8 i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
-                                {
-                                    // no spell
-                                    if (!proto->Spells[i].SpellId || proto->Spells[i].SpellTrigger != ITEM_SPELLTRIGGER_ON_EQUIP)
-                                        continue;
-
-                                    // check if it is valid spell
-                                    SpellInfo const* spellproto = sSpellMgr->GetSpellInfo(proto->Spells[i].SpellId);
-                                    if (!spellproto)
-                                        continue;
-
-                                    for (uint8 j = 0; j < MAX_SPELL_EFFECTS; ++j)
-                                        if (spellproto->Effects[j].ApplyAuraName == SPELL_AURA_MOD_ATTACK_POWER)
-                                            ap += spellproto->Effects[j].CalcValue();
-                                }
-
-                                weapon_bonus = CalculatePct(float(ap), aurEff->GetAmount());
-                            }
-                            break;
-                        default:
-                            break;
-                        }
-                    }
-                }
-            }
-
             switch (GetShapeshiftForm())
             {
             case FORM_CAT:
-                val2 = (GetLevel() * mLevelMult) + GetStat(STAT_STRENGTH) * 2.0f + GetStat(STAT_AGILITY) - 20.0f + weapon_bonus + m_baseFeralAP;
+                val2 = GetPredatoryStrikesBonus(*this) + GetStat(STAT_STRENGTH) * 2.0f + GetStat(STAT_AGILITY) - 20.0f + m_baseFeralAP;
                 break;
             case FORM_BEAR:
             case FORM_DIREBEAR:
-                val2 = (GetLevel() * mLevelMult) + GetStat(STAT_STRENGTH) * 2.0f - 20.0f + weapon_bonus + m_baseFeralAP;
+                val2 = GetPredatoryStrikesBonus(*this) + GetStat(STAT_STRENGTH) * 2.0f - 20.0f + m_baseFeralAP;
                 break;
             case FORM_MOONKIN:
-                val2 = (GetLevel() * mLevelMult) + GetStat(STAT_STRENGTH) * 2.0f - 20.0f + m_baseFeralAP;
+                val2 = GetStat(STAT_STRENGTH) * 2.0f - 20.0f + m_baseFeralAP;
                 break;
             default:
                 val2 = GetStat(STAT_STRENGTH) * 2.0f - 20.0f;
@@ -655,7 +675,8 @@ void Player::UpdateAttackPowerAndDamage(bool ranged)
             for (AuraEffectList::const_iterator i = mRAPbyStat.begin(); i != mRAPbyStat.end(); ++i)
                 attPowerMod += CalculatePct(GetStat(Stats((*i)->GetMiscValue())), (*i)->GetAmount());
 
-            attPowerMod += GetPathOfDualityAttackPowerBonus(*this);
+            if (!IsFreepickHero()) // wow-realms: free-pick Hero stats, its Hunter base already reads Agility
+                attPowerMod += GetPathOfDualityAttackPowerBonus(*this);
         }
     }
     else

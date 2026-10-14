@@ -262,6 +262,11 @@ void Commit(Player* player, Build const& base, ApplyCheck const& check, UnitChec
     LOG_INFO("coa", "Applied free-pick build of {}: {} entries, {} AE and {} TE spent, charged {} copper and {} marks",
         player->GetName(), next.Entries().size(), next.GlobalAE(0), next.GlobalTE(0), check.Money, check.Marks);
 }
+
+bool IsHeroOnClasslessRealm(Player const* player)
+{
+    return Classless && player->getClass() == CLASS_HERO;
+}
 }
 
 void Initialize()
@@ -272,6 +277,7 @@ void Initialize()
     initialized = true;
     CurrentRealm = ReadRealm();
     Classless = sConfigMgr->GetOption<std::string>("CoA.ClassModel", "coa") == "hero";
+    Player::SetFreepickHeroCheck(&IsHeroOnClasslessRealm);
     Reborn = CurrentRealm.WarcraftReborn;
     if ((Classless || Reborn) && !LoadCatalog(Loaded))
         LOG_ERROR("coa", "Free-pick Character Advancement is unavailable: its client DBCs did not load");
