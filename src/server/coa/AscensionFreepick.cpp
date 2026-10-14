@@ -22,6 +22,7 @@
 #include "Tokenize.h"
 #include "World.h"
 #include <algorithm>
+#include <iterator>
 #include <string_view>
 #include <unordered_set>
 
@@ -57,8 +58,10 @@ constexpr char ACTIVE_SPECIALIZATION_SETTING[] = "core.ascension_slot.active";
 constexpr std::uint32_t RANK_FACTOR = 10;
 constexpr uint16 SMSG_CHARACTER_ADVANCEMENT_ACTIVE_SPEC = 0x0725;
 constexpr uint16 SMSG_CHARACTER_ADVANCEMENT_KNOWN_ENTRIES = 0x0726;
+constexpr uint16 SMSG_PATCH_CHARACTER_ADVANCEMENT = 0x064A;
 
 Catalog Loaded;
+std::vector<std::vector<std::uint8_t>> PricedMasteryRows;
 Realm CurrentRealm;
 bool Classless = false;
 bool MysticAltars = false;
@@ -264,6 +267,20 @@ bool IsHeroOnClasslessRealm(Player const* player)
 {
     return Classless && player->getClass() == CLASS_HERO;
 }
+
+void SendPricedMasteryRows(Player* player)
+{
+    if (PricedMasteryRows.empty() || !HasFreepickBuild(player) || player->GetSession()->IsBot())
+        return;
+    for (std::vector<std::uint8_t> const& row : PricedMasteryRows)
+    {
+        WorldPacket packet(SMSG_PATCH_CHARACTER_ADVANCEMENT, row.size());
+        packet.append(row.data(), row.size());
+        player->SendDirectMessage(&packet);
+    }
+    LOG_INFO("coa", "Patched {} priced mastery rows into the client of {}", PricedMasteryRows.size(),
+        player->GetName());
+}
 }
 
 void Initialize()
@@ -276,8 +293,18 @@ void Initialize()
     Classless = sConfigMgr->GetOption<std::string>("CoA.ClassModel", "coa") == "hero";
     Player::SetFreepickHeroCheck(&IsHeroOnClasslessRealm);
     Reborn = CurrentRealm.WarcraftReborn;
-    if ((Classless || Reborn) && !LoadCatalog(Loaded))
+    if (!Classless && !Reborn)
+        return;
+    if (!LoadCatalog(Loaded))
         LOG_ERROR("coa", "Free-pick Character Advancement is unavailable: its client DBCs did not load");
+    std::vector<std::uint32_t> const priced = PriceLiveMasteries(Loaded);
+    std::vector<std::uint32_t> shown;
+    std::copy_if(priced.begin(), priced.end(), std::back_inserter(shown),
+        [](std::uint32_t entryId) { return Visible(Loaded, CurrentRealm, *Loaded.Find(entryId)); });
+    PricedMasteryRows = RowPatches(Loaded, shown);
+    if (!PricedMasteryRows.empty())
+        LOG_INFO("coa", "Priced {} live mastery rows as the client does; they are patched into free-pick clients "
+            "at login", PricedMasteryRows.size());
 }
 
 Catalog const& LoadedCatalog()
@@ -363,13 +390,9 @@ UploadResult ApplyUpload(Player* player, std::vector<AscensionCoATalentState::Kn
 UploadResult ApplyGuide(Player* player, std::vector<GuideSpell> const& spells, std::uint32_t primaryStat)
 {
     Build const base(Loaded, CurrentRealm, player->GetLevel(), StoredEntries(player), player->getClass());
-    std::vector<Entry> kept;
-    for (Entry const& entry : base.Entries())
-        if (Row const* row = Loaded.Find(entry.EntryId); row && (row->Group == 1 || row->Has(ROW_RETAINED) ||
-            (row->Has(ROW_AUTOMATIC) && !row->AECost && !row->TECost)))
-            kept.push_back(entry);
     std::vector<Entry> const wanted = FitGuide(Loaded, CurrentRealm, player->GetLevel(), player->getClass(),
-        GuideEntries(Loaded, CurrentRealm, player->GetLevel(), player->getClass(), spells, primaryStat), kept);
+        GuideEntries(Loaded, CurrentRealm, player->GetLevel(), player->getClass(), spells, primaryStat),
+        GuideKeeps(Loaded, base.Entries()));
     UploadResult const result = ApplyEntries(player, base, wanted);
     if (std::string_view(result.Result) == UPDATE_RESULTS[UPDATE_OK])
         SendSpecializationState(player);
@@ -410,7 +433,7 @@ bool SwitchSpecialization(Player* player, std::uint32_t index, std::string& erro
 
     std::vector<Entry> const before = StoredEntries(player);
     Build next(Loaded, CurrentRealm, player->GetLevel(), StoredEntries(player, SpecializationBuildSetting(index)));
-    next.AutoLearn(UnitRules(player));
+    next.Restore(UnitRules(player));
     Store(player, before, SpecializationBuildSetting(previous));
     StoreActionBars(player, previous);
     if (Pet* pet = player->GetPet())
@@ -490,7 +513,10 @@ void Synchronize(Player* player)
     }
     std::vector<Entry> const stored = StoredEntries(player);
     Build build(Loaded, CurrentRealm, player->GetLevel(), stored, player->getClass());
-    if (build.AutoLearn(UnitRules(player)))
+    Restored const restored = build.Restore(UnitRules(player));
+    if (restored.Repaired)
+        LOG_INFO("coa", "Repaired {} free-pick mastery member(s) of {}", restored.Repaired, player->GetName());
+    if (restored.Repaired || restored.Learned)
         Store(player, build.Entries());
     SyncSpells(player, stored, build.Entries());
 }
@@ -522,6 +548,7 @@ public:
     void OnPlayerLogin(Player* player) override
     {
         Synchronize(player);
+        SendPricedMasteryRows(player);
     }
 };
 
