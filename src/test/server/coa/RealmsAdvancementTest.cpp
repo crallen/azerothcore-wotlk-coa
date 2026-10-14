@@ -3,6 +3,13 @@
 #include "AscensionFreepickRules.h"
 #include "RealmsAdvancement.h"
 #include "gtest/gtest.h"
+#include <algorithm>
+#include <chrono>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <string_view>
 
 using namespace AscensionFreepick;
 
@@ -225,15 +232,6 @@ TEST_F(RealmsAdvancementTest, AMemberBoughtBeforeItsMasteryBecomesFree)
     EXPECT_EQ(Build(catalog, hero, 10, check.Entries).GlobalAE(0), 1u);
 }
 
-TEST_F(RealmsAdvancementTest, AMemberWithoutItsMasteryIsPaid)
-{
-    ApplyCheck const check = CheckApply(Build(catalog, hero, 10), { { MEMBER_ROW, 1 } }, nullptr, {});
-    ASSERT_EQ(check.Result, UPDATE_OK);
-    Build const built(catalog, hero, 10, check.Entries);
-    EXPECT_EQ(built.GlobalAE(0), 1u);
-    EXPECT_FALSE(built.Granted(catalog.Rows.at(MEMBER_ROW)));
-}
-
 TEST_F(RealmsAdvancementTest, RemovingAMasteryPricesTheMasteryNotItsMembers)
 {
     Build const base(catalog, hero, 20, { { MASTERY_ROW, 1 }, { MEMBER_ROW, 1 } });
@@ -283,6 +281,177 @@ TEST_F(RealmsAdvancementTest, ADroppedMemberReturnsWhileItsMasteryStays)
     built.SetEntries(check.Entries);
     built.AutoLearn(nullptr);
     EXPECT_TRUE(built.Has(MEMBER_ROW));
+}
+
+TEST_F(RealmsAdvancementTest, PricingLiveMembersFreesThemAndRequiresTheirMastery)
+{
+    constexpr std::uint32_t ABSENT_MASTERY = 4900;
+    constexpr std::uint32_t ORPHAN_MEMBER_ROW = 4004;
+    constexpr std::uint32_t SEASONAL_MEMBER_ROW = 4005;
+    Row orphan = AbilityRow(ORPHAN_MEMBER_ROW, HERO_TREE, 1, ROW_AUTOMATIC);
+    orphan.Masteries[0] = ABSENT_MASTERY;
+    Add(orphan);
+    Row seasonal = AbilityRow(SEASONAL_MEMBER_ROW, HERO_TREE, 1, ROW_AUTOMATIC);
+    seasonal.Realms = { false, true, false, false, false };
+    seasonal.Masteries[0] = MASTERY_ROW;
+    Add(seasonal);
+    constexpr std::uint32_t NAMING_ROW = 4006;
+    Row naming = AbilityRow(NAMING_ROW, HERO_TREE, 1, 0);
+    naming.Masteries[0] = MASTERY_ROW;
+    Add(naming);
+    catalog.Rows.at(MEMBER_ROW).TECost = 1;
+    catalog.Rows.at(LATE_MEMBER_ROW).Required[0] = HERO_ROW;
+
+    EXPECT_EQ(PriceLiveMasteries(catalog), (std::vector<std::uint32_t>{ MEMBER_ROW, LATE_MEMBER_ROW }));
+    Row const& member = catalog.Rows.at(MEMBER_ROW);
+    EXPECT_EQ(member.AECost, 0u);
+    EXPECT_EQ(member.TECost, 0u);
+    EXPECT_EQ(member.Required, (std::array<std::uint32_t, REQUIRED_COUNT>{ MASTERY_ROW, 0, 0 }));
+    EXPECT_EQ(catalog.Rows.at(LATE_MEMBER_ROW).Required,
+        (std::array<std::uint32_t, REQUIRED_COUNT>{ HERO_ROW, MASTERY_ROW, 0 }));
+    for (std::uint32_t untouched : { ORPHAN_MEMBER_ROW, SEASONAL_MEMBER_ROW, NAMING_ROW, MASTERY_ROW })
+    {
+        EXPECT_EQ(catalog.Rows.at(untouched).AECost, 1u) << untouched;
+        EXPECT_EQ(catalog.Rows.at(untouched).Required, (std::array<std::uint32_t, REQUIRED_COUNT>{})) << untouched;
+    }
+}
+
+class RealmsLateMasteryTest : public RealmsAdvancementTest
+{
+protected:
+    static constexpr std::uint32_t LATE_MASTERY_ROW = 4100;
+    static constexpr std::uint32_t EARLY_MEMBER_ROW = 4101;
+    static constexpr std::uint32_t LATER_MEMBER_ROW = 4102;
+
+    void SetUp() override
+    {
+        RealmsAdvancementTest::SetUp();
+        Add(AbilityRow(LATE_MASTERY_ROW, HERO_TREE, 30, ROW_MASTERY));
+        for (auto const& [entryId, level] : { std::pair{ EARLY_MEMBER_ROW, 25u }, std::pair{ LATER_MEMBER_ROW, 40u } })
+        {
+            Row member = AbilityRow(entryId, HERO_TREE, level, ROW_AUTOMATIC);
+            member.Masteries[0] = LATE_MASTERY_ROW;
+            Add(member);
+        }
+    }
+};
+
+TEST_F(RealmsLateMasteryTest, PricingLowersAMasteryAboveItsLowestMemberToThatMembersLevel)
+{
+    std::vector<std::uint32_t> const priced = PriceLiveMasteries(catalog);
+    EXPECT_EQ(catalog.Rows.at(LATE_MASTERY_ROW).RequiredLevel, 25u);
+    EXPECT_EQ(catalog.Rows.at(MASTERY_ROW).RequiredLevel, 1u);
+    EXPECT_NE(std::find(priced.begin(), priced.end(), LATE_MASTERY_ROW), priced.end());
+    EXPECT_EQ(std::find(priced.begin(), priced.end(), MASTERY_ROW), priced.end());
+}
+
+TEST_F(RealmsLateMasteryTest, RepairAddsALoweredMasteryForAMemberBoughtBelowItsOldLevel)
+{
+    PriceLiveMasteries(catalog);
+    Build build(catalog, hero, 25, { { EARLY_MEMBER_ROW, 1 } });
+    EXPECT_EQ(build.RepairMembers(), 1u);
+    EXPECT_TRUE(build.Has(LATE_MASTERY_ROW));
+    EXPECT_TRUE(build.Has(EARLY_MEMBER_ROW));
+}
+
+class RealmsPricedMasteryTest : public RealmsAdvancementTest
+{
+protected:
+    void SetUp() override
+    {
+        RealmsAdvancementTest::SetUp();
+        PriceLiveMasteries(catalog);
+    }
+};
+
+TEST_F(RealmsPricedMasteryTest, AMemberWithoutItsMasteryIsRefused)
+{
+    Build const base(catalog, hero, 10);
+    EXPECT_EQ(base.ValidateLearn(MEMBER_ROW, nullptr), std::uint32_t(LEARN_MISSING_REQUIRED_ID));
+    ApplyCheck const check = CheckApply(base, { { MEMBER_ROW, 1 } }, nullptr, {});
+    EXPECT_EQ(check.Result, UPDATE_NOT_TRAVERSIBLE);
+    EXPECT_EQ(check.Learn, std::uint32_t(LEARN_MISSING_REQUIRED_ID));
+}
+
+TEST_F(RealmsPricedMasteryTest, AMemberListedBeforeItsMasteryIsReordered)
+{
+    ApplyCheck const check = CheckApply(Build(catalog, hero, 10), { { MEMBER_ROW, 1 }, { MASTERY_ROW, 1 } }, nullptr,
+        {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    ASSERT_EQ(check.Entries.size(), 2u);
+    EXPECT_EQ(check.Entries[0].EntryId, MASTERY_ROW);
+    EXPECT_EQ(Build(catalog, hero, 10, check.Entries).GlobalAE(0), 1u);
+}
+
+TEST_F(RealmsPricedMasteryTest, AMasteryAutoLearnsItsMembersAtNoEssence)
+{
+    Build build(catalog, hero, 10, { { MASTERY_ROW, 1 } });
+    EXPECT_EQ(build.AutoLearn(nullptr), 1u);
+    EXPECT_TRUE(build.Has(MEMBER_ROW));
+    EXPECT_EQ(catalog.Rows.at(MEMBER_ROW).AECost, 0u);
+    EXPECT_EQ(build.GlobalAE(0), 1u);
+}
+
+TEST_F(RealmsPricedMasteryTest, RepairAddsTheMasteryAStoredMemberLacks)
+{
+    Build build(catalog, hero, 10, { { HERO_ROW, 1 }, { MEMBER_ROW, 1 } });
+    EXPECT_EQ(build.RepairMembers(), 1u);
+    ASSERT_EQ(build.Entries().size(), 3u);
+    EXPECT_EQ(build.Entries()[1].EntryId, MASTERY_ROW);
+    EXPECT_EQ(build.Entries()[2].EntryId, MEMBER_ROW);
+    EXPECT_EQ(build.GlobalAE(0), 1u);
+}
+
+TEST_F(RealmsPricedMasteryTest, RepairAddsOneMasteryForTwoOfItsMembers)
+{
+    Build build(catalog, hero, 20, { { MEMBER_ROW, 1 }, { LATE_MEMBER_ROW, 1 } });
+    EXPECT_EQ(build.RepairMembers(), 1u);
+    ASSERT_EQ(build.Entries().size(), 3u);
+    EXPECT_EQ(build.Entries()[0].EntryId, MASTERY_ROW);
+    EXPECT_EQ(build.GlobalAE(0), 1u);
+}
+
+TEST_F(RealmsPricedMasteryTest, RestoringAStoredBuildRepairsItsMembersBeforeAutoLearning)
+{
+    Build build(catalog, hero, 20, { { MEMBER_ROW, 1 } });
+    Restored const restored = build.Restore(nullptr);
+    EXPECT_EQ(restored.Repaired, 1u);
+    EXPECT_EQ(restored.Learned, 1u);
+    EXPECT_TRUE(build.Has(MASTERY_ROW));
+    EXPECT_TRUE(build.Has(LATE_MEMBER_ROW));
+}
+
+TEST_F(RealmsPricedMasteryTest, RepairDropsAStoredMemberWhoseMasteryDoesNotFit)
+{
+    Build build(catalog, hero, 19, { { MEMBER_ROW, 1 }, { LEVEL_20_SINK_ROW, 1 } });
+    ASSERT_EQ(build.RemainingAE(), 0u);
+    EXPECT_EQ(build.RepairMembers(), 1u);
+    ASSERT_EQ(build.Entries().size(), 1u);
+    EXPECT_EQ(build.Entries()[0].EntryId, LEVEL_20_SINK_ROW);
+}
+
+TEST_F(RealmsPricedMasteryTest, AGuideOmittingAHeldMasteryAppliesAndItsMembersLeave)
+{
+    Build const base(catalog, hero, 10, { { MASTERY_ROW, 1 }, { MEMBER_ROW, 1 } });
+    std::vector<Entry> const wanted = FitGuide(catalog, hero, 10, HERO_CLASS, { { HERO_ROW, 1 } },
+        GuideKeeps(catalog, base.Entries()));
+    ApplyCheck const check = CheckApply(base, wanted, nullptr, {});
+    ASSERT_EQ(check.Result, UPDATE_OK);
+    Build built(base);
+    built.SetEntries(check.Entries);
+    built.AutoLearn(nullptr);
+    EXPECT_TRUE(built.Has(HERO_ROW));
+    EXPECT_FALSE(built.Has(MASTERY_ROW));
+    EXPECT_FALSE(built.Has(MEMBER_ROW));
+}
+
+TEST_F(RealmsPricedMasteryTest, AGuideListingAMemberAloneFitsItsMasteryFirst)
+{
+    std::vector<Entry> const fitted = FitGuide(catalog, hero, 10, HERO_CLASS, { { MEMBER_ROW, 1 } }, {});
+    ASSERT_EQ(fitted.size(), 2u);
+    EXPECT_EQ(fitted[0].EntryId, MASTERY_ROW);
+    EXPECT_EQ(fitted[1].EntryId, MEMBER_ROW);
+    EXPECT_EQ(Build(catalog, hero, 10, fitted).GlobalAE(0), 1u);
 }
 
 class RealmsTalentPickerTest : public RealmsAdvancementTest
@@ -483,5 +652,221 @@ TEST_F(RealmsStartingKitTest, CreateSpellsAddTheAutomaticAbilitiesUpToTheCharact
 TEST_F(RealmsStartingKitTest, TrainerSpellsAreTheTrainerSourcesGiven)
 {
     EXPECT_EQ(Kit(1, 1, { CHARGE, EXECUTE }).TrainerSpells, (std::unordered_set<std::uint32_t>{ CHARGE, EXECUTE }));
+}
+
+// CharacterAdvancement.dbc's record layout as the client converts it into its 0x1FC-byte row
+// (ascension-extensions-reconstruction: src/Ascension/AscDbcLayouts.generated.inc, converted by AscDbc.cpp):
+// d is a DWORD, b a packed byte, L a localized string of 16 locale offsets and a flags DWORD, of which the
+// client keeps the enUS offset, the first.
+constexpr char ADVANCEMENT_LAYOUT[] = "ddddddddddddddddddddddddddddddddddddddddddddddd" "LdLLbbddddbddddddddddddddddd"
+    "bbbbbddddddddddddddddddddddddddddddddddddddddddddddddddd";
+constexpr std::array<std::uint32_t, 12> CLIENT_STRING_FIELDS = { 0x04, 0x40, 0x50, 0x60, 0xBC, 0xC0, 0xC4, 0xC8,
+    0x120, 0x1A4, 0x1A8, 0x1AC };
+constexpr std::uint32_t CLIENT_ROW_SIZE = 0x1FC;
+constexpr std::uint32_t ADVANCEMENT_RECORD_SIZE = 692;
+
+struct LayoutField
+{
+    std::uint32_t Client;
+    std::uint32_t Record;
+    char Kind;
+};
+
+std::vector<LayoutField> AdvancementFields()
+{
+    std::vector<LayoutField> fields;
+    std::uint32_t client = 0;
+    std::uint32_t record = 0;
+    for (char kind : std::string_view(ADVANCEMENT_LAYOUT))
+    {
+        if (kind != 'b')
+            client = (client + 3) & ~3u;
+        fields.push_back({ client, record, kind });
+        client += kind == 'b' ? 1 : 4;
+        record += kind == 'b' ? 1 : kind == 'L' ? 68 : 4;
+    }
+    return fields;
+}
+
+bool IsClientString(std::uint32_t client)
+{
+    return std::find(CLIENT_STRING_FIELDS.begin(), CLIENT_STRING_FIELDS.end(), client) != CLIENT_STRING_FIELDS.end();
+}
+
+std::string FieldText(std::uint32_t client)
+{
+    return client == 0xC4 ? std::string() : "text at " + std::to_string(client);
+}
+
+struct AdvancementFile
+{
+    std::vector<std::uint8_t> Record = std::vector<std::uint8_t>(ADVANCEMENT_RECORD_SIZE);
+    std::string Strings = std::string("string at offset zero") + '\0';
+
+    void PutDword(std::uint32_t offset, std::uint32_t value) { std::memcpy(Record.data() + offset, &value, 4); }
+
+    void PutString(std::uint32_t offset, std::string const& text)
+    {
+        PutDword(offset, std::uint32_t(Strings.size()));
+        Strings += text + '\0';
+    }
+
+    std::string Write() const
+    {
+        std::vector<std::uint8_t> bytes = { 'W', 'D', 'B', 'C' };
+        for (std::uint32_t value : { 1u, 179u, ADVANCEMENT_RECORD_SIZE, std::uint32_t(Strings.size()) })
+            bytes.insert(bytes.end(), reinterpret_cast<std::uint8_t const*>(&value),
+                reinterpret_cast<std::uint8_t const*>(&value) + 4);
+        bytes.insert(bytes.end(), Record.begin(), Record.end());
+        bytes.insert(bytes.end(), Strings.begin(), Strings.end());
+        std::filesystem::path const path = std::filesystem::temp_directory_path() / ("RealmsRowPatchTest-" +
+            std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".dbc");
+        std::ofstream(path, std::ios::binary).write(reinterpret_cast<char const*>(bytes.data()), bytes.size());
+        return path.string();
+    }
+};
+
+AdvancementFile DistinctAdvancementRecord()
+{
+    AdvancementFile file;
+    for (LayoutField const& field : AdvancementFields())
+    {
+        if (field.Kind == 'b')
+            file.Record[field.Record] = std::uint8_t(field.Client);
+        else if (IsClientString(field.Client))
+        {
+            file.PutString(field.Record, FieldText(field.Client));
+            if (field.Kind == 'L')
+                for (std::uint32_t locale = 1; locale < 16; ++locale)
+                    file.PutString(field.Record + 4 * locale, "locale " + std::to_string(locale));
+        }
+        else
+            file.PutDword(field.Record, 0x10000 + field.Client);
+    }
+    return file;
+}
+
+struct ClientRow
+{
+    std::array<std::uint8_t, CLIENT_ROW_SIZE> Memory{};
+    std::map<std::uint32_t, std::string> Strings;
+    std::size_t Consumed = 0;
+    bool Overran = false;
+
+    std::uint32_t Dword(std::uint32_t offset) const
+    {
+        std::uint32_t value;
+        std::memcpy(&value, Memory.data() + offset, 4);
+        return value;
+    }
+};
+
+class PatchReader
+{
+public:
+    explicit PatchReader(std::vector<std::uint8_t> const& bytes) : _bytes(bytes) { }
+
+    ClientRow Read()
+    {
+        Dwords(0x00, 0x00);
+        Text(0x04);
+        Dwords(0x08, 0x3C);
+        Text(0x40);
+        Dwords(0x44, 0x4C);
+        Text(0x50);
+        Dwords(0x54, 0x5C);
+        Text(0x60);
+        Dwords(0x64, 0xB8);
+        for (std::uint32_t offset = 0xBC; offset <= 0xC8; offset += 4)
+            Text(offset);
+        Byte(0xCC);
+        Byte(0xCD);
+        Dwords(0xD0, 0xDC);
+        Byte(0xE0);
+        Dwords(0xE4, 0x11C);
+        Text(0x120);
+        Dwords(0x124, 0x124);
+        for (std::uint32_t offset = 0x128; offset <= 0x12C; ++offset)
+            Byte(offset);
+        Dwords(0x130, 0x1A0);
+        for (std::uint32_t offset = 0x1A4; offset <= 0x1AC; offset += 4)
+            Text(offset);
+        Dwords(0x1B0, 0x1F8);
+        _row.Consumed = _position;
+        return _row;
+    }
+
+private:
+    std::uint8_t Next()
+    {
+        if (_position >= _bytes.size())
+        {
+            _row.Overran = true;
+            return 0;
+        }
+        return _bytes[_position++];
+    }
+
+    void Byte(std::uint32_t offset) { _row.Memory[offset] = Next(); }
+
+    void Dwords(std::uint32_t first, std::uint32_t last)
+    {
+        for (std::uint32_t offset = first; offset <= last; offset += 4)
+            for (std::uint32_t index = 0; index < 4; ++index)
+                _row.Memory[offset + index] = Next();
+    }
+
+    void Text(std::uint32_t offset)
+    {
+        std::string text;
+        for (std::uint8_t character = Next(); character && !_row.Overran; character = Next())
+            text += char(character);
+        _row.Strings[offset] = text;
+    }
+
+    std::vector<std::uint8_t> const& _bytes;
+    std::size_t _position = 0;
+    ClientRow _row;
+};
+
+TEST(RealmsRowPatchTest, TheClientLayoutSpansTheWholeRecordAndRow)
+{
+    LayoutField const& last = AdvancementFields().back();
+    EXPECT_EQ(last.Record + 4, ADVANCEMENT_RECORD_SIZE);
+    EXPECT_EQ(last.Client + 4, CLIENT_ROW_SIZE);
+}
+
+TEST(RealmsRowPatchTest, AWholeRecordReadsBackInTheClientsOrderWithOnlyItsPriceAndLevelChanged)
+{
+    constexpr std::uint32_t MASTERY = 1370;
+    std::string const path = DistinctAdvancementRecord().Write();
+    ClientDBC file;
+    bool const loaded = file.Load(path, ADVANCEMENT_RECORD_SIZE / 4);
+    std::filesystem::remove(path);
+    ASSERT_TRUE(loaded);
+    Row priced;
+    priced.Required = { MASTERY, 0, 0 };
+    priced.AECost = 0;
+    priced.TECost = 0;
+    priced.RequiredLevel = 30;
+
+    std::vector<std::uint8_t> const bytes = RowPatch(file.GetRecord(0), priced);
+    ClientRow const row = PatchReader(bytes).Read();
+
+    ASSERT_FALSE(row.Overran);
+    EXPECT_EQ(row.Consumed, bytes.size());
+    std::map<std::uint32_t, std::uint32_t> const repriced = { { 0x08, MASTERY }, { 0x0C, 0 }, { 0x10, 0 },
+        { 0x38, 0 }, { 0x3C, 0 }, { 0x68, 30 } };
+    for (LayoutField const& field : AdvancementFields())
+    {
+        if (field.Kind == 'b')
+            EXPECT_EQ(row.Memory[field.Client], std::uint8_t(field.Client)) << field.Client;
+        else if (IsClientString(field.Client))
+            EXPECT_EQ(row.Strings.at(field.Client), FieldText(field.Client)) << field.Client;
+        else if (repriced.contains(field.Client))
+            EXPECT_EQ(row.Dword(field.Client), repriced.at(field.Client)) << field.Client;
+        else
+            EXPECT_EQ(row.Dword(field.Client), 0x10000 + field.Client) << field.Client;
+    }
 }
 }
