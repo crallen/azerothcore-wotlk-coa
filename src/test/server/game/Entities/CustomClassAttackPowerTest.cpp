@@ -16,9 +16,13 @@
  */
 
 #include "IntegrationTestFixture.h"
+#include "SpellAuras.h"
+#include "SpellInfoTestHelper.h"
 
 namespace
 {
+constexpr uint32 PREDATORY_STRIKES_ICON = 1563;
+
 class CustomClassAttackPowerTest : public IntegrationTestFixture
 {
 protected:
@@ -30,6 +34,46 @@ protected:
         player->SetStat(STAT_STRENGTH, strength);
         player->SetStat(STAT_AGILITY, agility);
         return player;
+    }
+
+    void TearDown() override
+    {
+        Player::SetFreepickHeroCheck(nullptr);
+        IntegrationTestFixture::TearDown();
+    }
+
+    static void TreatEveryHeroAsFreepick()
+    {
+        Player::SetFreepickHeroCheck([](Player const* player) { return player->getClass() == CLASS_HERO; });
+    }
+
+    static std::unique_ptr<SpellInfo> CreatePathOfAgilityAttackPowerAura()
+    {
+        return SpellInfoBuilder()
+            .WithId(990268)
+            .WithEffect(0, SPELL_EFFECT_APPLY_AURA, SPELL_AURA_MOD_ATTACK_POWER_OF_STAT_PERCENT)
+            .WithEffectBasePoints(0, 100)
+            .WithEffectMiscValue(0, STAT_AGILITY)
+            .BuildUnique();
+    }
+
+    static std::unique_ptr<SpellInfo> CreatePredatoryStrikesLevelAura()
+    {
+        std::unique_ptr<SpellInfo> aura = SpellInfoBuilder()
+            .WithId(991563)
+            .WithEffect(0, SPELL_EFFECT_APPLY_AURA, SPELL_AURA_DUMMY)
+            .WithEffectBasePoints(0, 100)
+            .BuildUnique();
+        aura->SpellIconID = PREDATORY_STRIKES_ICON;
+        return aura;
+    }
+
+    static std::unique_ptr<SpellInfo> CreatePathOfDualityStatBuffAura()
+    {
+        return SpellInfoBuilder()
+            .WithId(SPELL_PATH_OF_DUALITY_STAT_BUFF)
+            .WithEffect(0, SPELL_EFFECT_APPLY_AURA, SPELL_AURA_DUMMY)
+            .BuildUnique();
     }
 
 private:
@@ -205,6 +249,149 @@ TEST_F(CustomClassAttackPowerTest, MeleeRecalculationDoesNotOverwriteRangedAttac
         player->UpdateAttackPowerAndDamage();
         EXPECT_EQ(player->GetInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER), rangedAttackPower);
     }
+}
+
+TEST_F(CustomClassAttackPowerTest, FreepickHeroMeleeBaseIsNeutral)
+{
+    TreatEveryHeroAsFreepick();
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    hero->UpdateAttackPowerAndDamage();
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 400);
+
+    hero->SetStat(STAT_STRENGTH, 310);
+    hero->UpdateAttackPowerAndDamage();
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 410);
+
+    hero->SetStat(STAT_AGILITY, 160);
+    hero->UpdateAttackPowerAndDamage();
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 410);
+
+    hero->SetLevel(61);
+    hero->UpdateAttackPowerAndDamage();
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 412);
+}
+
+TEST_F(CustomClassAttackPowerTest, FreepickHeroRangedMatchesHunter)
+{
+    TreatEveryHeroAsFreepick();
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    TestPlayer* hunter = CreatePlayerWithStats(CLASS_HUNTER, 60, 300, 150);
+    hero->UpdateAttackPowerAndDamage(true);
+    hunter->UpdateAttackPowerAndDamage(true);
+
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER), 260);
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER),
+        hunter->GetInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER));
+}
+
+TEST_F(CustomClassAttackPowerTest, FreepickHeroOnDualityKeepsTheHunterRangedBase)
+{
+    TreatEveryHeroAsFreepick();
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    auto const pathOfDuality = CreatePathOfDualityStatBuffAura();
+    ASSERT_NE(hero->AddAura(pathOfDuality.get(), 1, hero), nullptr);
+    hero->UpdateAttackPowerAndDamage(true);
+
+    EXPECT_FLOAT_EQ(hero->GetTotalAttackPowerValue(RANGED_ATTACK), 260.0f);
+}
+
+TEST_F(CustomClassAttackPowerTest, WildcardHeroOnDualityGainsTheHigherStatAsRangedAttackPower)
+{
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    auto const pathOfDuality = CreatePathOfDualityStatBuffAura();
+    ASSERT_NE(hero->AddAura(pathOfDuality.get(), 1, hero), nullptr);
+    hero->UpdateAttackPowerAndDamage(true);
+
+    EXPECT_FLOAT_EQ(hero->GetTotalAttackPowerValue(RANGED_ATTACK), 440.0f);
+}
+
+TEST_F(CustomClassAttackPowerTest, FreepickHeroOnAnAgilityPathMatchesRogue)
+{
+    TreatEveryHeroAsFreepick();
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    TestPlayer* rogue = CreatePlayerWithStats(CLASS_ROGUE, 60, 300, 150);
+    auto const pathOfAgility = CreatePathOfAgilityAttackPowerAura();
+    ASSERT_NE(hero->AddAura(pathOfAgility.get(), 1, hero), nullptr);
+    hero->UpdateAttackPowerAndDamage();
+    rogue->UpdateAttackPowerAndDamage();
+
+    EXPECT_FLOAT_EQ(hero->GetTotalAttackPowerValue(BASE_ATTACK), 550.0f);
+    EXPECT_FLOAT_EQ(hero->GetTotalAttackPowerValue(BASE_ATTACK), rogue->GetTotalAttackPowerValue(BASE_ATTACK));
+}
+
+TEST_F(CustomClassAttackPowerTest, FreepickHeroInCatFormGainsFeralAttackPower)
+{
+    TreatEveryHeroAsFreepick();
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    hero->SetShapeshiftForm(FORM_CAT);
+    hero->ApplyFeralAPBonus(100, true);
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 500);
+
+    auto const predatoryStrikes = CreatePredatoryStrikesLevelAura();
+    ASSERT_NE(hero->AddAura(predatoryStrikes.get(), 1, hero), nullptr);
+    hero->UpdateAttackPowerAndDamage();
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 560);
+}
+
+TEST_F(CustomClassAttackPowerTest, FreepickHeroInBearFormGainsFeralAttackPower)
+{
+    TreatEveryHeroAsFreepick();
+    for (ShapeshiftForm form : {FORM_BEAR, FORM_DIREBEAR})
+    {
+        SCOPED_TRACE(uint32(form));
+        TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+        hero->SetShapeshiftForm(form);
+        hero->ApplyFeralAPBonus(100, true);
+
+        EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 500);
+    }
+}
+
+TEST_F(CustomClassAttackPowerTest, FreepickHeroInGhostWolfKeepsTheNeutralBase)
+{
+    TreatEveryHeroAsFreepick();
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    auto const predatoryStrikes = CreatePredatoryStrikesLevelAura();
+    ASSERT_NE(hero->AddAura(predatoryStrikes.get(), 1, hero), nullptr);
+    hero->SetShapeshiftForm(FORM_GHOSTWOLF);
+    hero->ApplyFeralAPBonus(100, true);
+
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 400);
+}
+
+TEST_F(CustomClassAttackPowerTest, DruidCatFormIsUnchanged)
+{
+    TreatEveryHeroAsFreepick();
+    TestPlayer* druid = CreatePlayerWithStats(CLASS_DRUID, 60, 300, 150);
+    druid->SetShapeshiftForm(FORM_CAT);
+    druid->ApplyFeralAPBonus(100, true);
+    EXPECT_EQ(druid->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 830);
+
+    auto const predatoryStrikes = CreatePredatoryStrikesLevelAura();
+    ASSERT_NE(druid->AddAura(predatoryStrikes.get(), 1, druid), nullptr);
+    druid->UpdateAttackPowerAndDamage();
+    EXPECT_EQ(druid->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 890);
+}
+
+TEST_F(CustomClassAttackPowerTest, WildcardHeroKeepsTodaysFormula)
+{
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    hero->UpdateAttackPowerAndDamage();
+    hero->UpdateAttackPowerAndDamage(true);
+
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 0);
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER), 140);
+}
+
+TEST_F(CustomClassAttackPowerTest, HeroTheFreepickCheckRejectsKeepsTodaysFormula)
+{
+    Player::SetFreepickHeroCheck([](Player const*) { return false; });
+    TestPlayer* hero = CreatePlayerWithStats(CLASS_HERO, 60, 300, 150);
+    hero->UpdateAttackPowerAndDamage();
+    hero->UpdateAttackPowerAndDamage(true);
+
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_ATTACK_POWER), 0);
+    EXPECT_EQ(hero->GetInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER), 140);
 }
 
 TEST(ClassProjectileAmmoTest, OnlyStockClassesUseProjectileAmmo)
