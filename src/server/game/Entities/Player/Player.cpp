@@ -2630,6 +2630,33 @@ void Player::GiveXP(uint32 xp, Unit* victim, float group_rate, bool isLFGReward,
     SetUInt32Value(PLAYER_XP, static_cast<uint32>(newXP));
 }
 
+void Player::RecalculateLevelScaledPassiveAuras()
+{
+    std::set<uint32> linkedFromPassives;
+    for (auto const& [spellId, aura] : GetOwnedAuras())
+        if (aura->IsPassive() && !aura->IsRemoved() && aura->GetCasterGUID() == GetGUID())
+            if (std::vector<int32> const* linked = sSpellMgr->GetSpellLinked(int32(spellId) + SPELL_LINK_AURA))
+                for (int32 linkedId : *linked)
+                    if (linkedId > 0)
+                        linkedFromPassives.insert(uint32(linkedId));
+
+    std::vector<AuraEffect*> levelScaledEffects;
+    for (auto const& [spellId, aura] : GetOwnedAuras())
+    {
+        if ((!aura->IsPassive() && !linkedFromPassives.contains(spellId)) || aura->IsRemoved() || aura->GetCasterGUID() != GetGUID())
+            continue;
+
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            if (AuraEffect* effect = aura->GetEffect(i))
+                if (aura->GetSpellInfo()->Effects[i].RealPointsPerLevel != 0.0f)
+                    levelScaledEffects.push_back(effect);
+    }
+
+    for (AuraEffect* effect : levelScaledEffects)
+        if (!effect->GetBase()->IsRemoved())
+            effect->RecalculateAmount(this);
+}
+
 // Update player to next level
 // Current player experience not update (must be update by caller)
 void Player::GiveLevel(uint8 level)
@@ -2689,6 +2716,8 @@ void Player::GiveLevel(uint8 level)
     InitTalentForLevel();
     InitTaxiNodesForLevel();
     InitGlyphsForLevel();
+
+    RecalculateLevelScaledPassiveAuras();
 
     UpdateAllStats();
 
@@ -5601,6 +5630,14 @@ uint32 Player::GetShieldBlockValue() const
     return uint32(value);
 }
 
+float Player::GetCritStat(Stats stat) const
+{
+    if ((stat != STAT_AGILITY && stat != STAT_INTELLECT) || !HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF))
+        return GetStat(stat);
+
+    return std::max(GetStat(STAT_AGILITY), GetStat(STAT_INTELLECT));
+}
+
 float Player::GetMeleeCritFromAgility()
 {
     uint8 level = GetLevel();
@@ -5619,7 +5656,7 @@ float Player::GetMeleeCritFromAgility()
     if (sWorld->getBoolConfig(CONFIG_CLASSIC_PLUS_STAT_FORMULAS))
         crit = ClassicPlusStats::MeleeCrit(pclass, level, crit);
 
-    return (crit.Base + GetStat(STAT_AGILITY) * crit.PerPoint) * 100.0f;
+    return (crit.Base + GetCritStat(STAT_AGILITY) * crit.PerPoint) * 100.0f;
 }
 
 void Player::GetDodgeFromAgility(float& diminishing, float& nondiminishing)
@@ -5698,7 +5735,7 @@ float Player::GetSpellCritFromIntellect()
     if (sWorld->getBoolConfig(CONFIG_CLASSIC_PLUS_STAT_FORMULAS))
         crit = ClassicPlusStats::SpellCrit(pclass, level, crit);
 
-    return (crit.Base + GetStat(STAT_INTELLECT) * crit.PerPoint) * 100.0f;
+    return (crit.Base + GetCritStat(STAT_INTELLECT) * crit.PerPoint) * 100.0f;
 }
 
 float Player::GetRatingMultiplier(CombatRating cr) const

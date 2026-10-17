@@ -775,6 +775,14 @@ public:
     [[nodiscard]] bool IsArenaAllowedEnchancment(uint32 ench_id) const;
 
     [[nodiscard]] std::vector<int32> const* GetSpellLinked(int32 spell_id) const;
+    // wow-realms: level-up rescale, lets the gtests link spells; an empty list removes the link.
+    void SetSpellLinkedForTest(int32 trigger, std::vector<int32> effects)
+    {
+        if (effects.empty())
+            mSpellLinkedMap.erase(trigger);
+        else
+            mSpellLinkedMap[trigger] = std::move(effects);
+    }
 
     [[nodiscard]] PetLevelupSpellSet const* GetPetLevelupSpellList(uint32 petFamily) const;
     [[nodiscard]] PetDefaultSpellsEntry const* GetPetDefaultSpellsEntry(int32 id) const;

@@ -630,6 +630,25 @@ void ApplyAscensionPathPassiveContract(SpellInfo* spellInfo)
     constexpr int32 TWO_HANDED_WEAPONS = 0x1562;
     constexpr int32 ONE_HANDED_MELEE_WEAPONS = 0xA091;
     constexpr uint32 AGILE_STRIKES = 986201;
+    if (spellInfo->Id == SPELL_PATH_OF_DUALITY_STAT_BUFF)
+    {
+        SpellEffectInfo& intellect = spellInfo->Effects[EFFECT_1];
+        if (intellect.Effect)
+        {
+            LOG_ERROR("coa", "Skipped unexpected Path of Duality record {}", spellInfo->Id);
+            return;
+        }
+        SpellEffectInfo const& dummy = spellInfo->Effects[EFFECT_2];
+        intellect.Effect = SPELL_EFFECT_APPLY_AURA;
+        intellect.ApplyAuraName = SPELL_AURA_MOD_STAT;
+        intellect.MiscValue = STAT_INTELLECT;
+        intellect.BasePoints = 3;
+        intellect.DieSides = 1;
+        intellect.RealPointsPerLevel = 0.5f;
+        intellect.TargetA = dummy.TargetA;
+        intellect.TargetB = dummy.TargetB;
+        return;
+    }
     switch (spellInfo->Id)
     {
         case 986202: case 986200: case 92839: case 92842: case 129245:

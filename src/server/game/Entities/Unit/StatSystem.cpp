@@ -246,6 +246,8 @@ bool Player::UpdateStats(Stats stat)
             UpdateArmor();
             UpdateAllCritPercentages();
             UpdateDodgePercentage();
+            if (HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF))   // wow-realms: spell crit reads the higher of Agility and Intellect
+                UpdateAllSpellCritChances();
             break;
         case STAT_STAMINA:
             UpdateMaxHealth();
@@ -255,6 +257,8 @@ bool Player::UpdateStats(Stats stat)
             UpdateMaxHealth();                              // SPELL_AURA_ASCENSION_MOD_MAX_MANA_FROM_STAT, POWER_HEALTH branch
             UpdateAllSpellCritChances();
             UpdateArmor();                                  //SPELL_AURA_MOD_RESISTANCE_OF_INTELLECT_PERCENT, only armor currently
+            if (HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF))   // wow-realms: melee and ranged crit read the higher of Agility and Intellect
+                UpdateAllCritPercentages();
             break;
         default:
             break;
