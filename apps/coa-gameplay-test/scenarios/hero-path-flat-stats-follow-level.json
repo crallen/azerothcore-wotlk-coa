@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "name": "A Hero's path stat grants grow on level-up without a relog",
+  "contract": "Path of Strength 84864 grants Path of Strength: Stat Buff 820043, whose effect 1 is 4 + level / 2 Strength; Path of Agility 84865 links 954688, whose effect 1 is level ranged attack power. Per-level amounts are fixed when an aura is applied, so before the realm's level-up fix a path picked at 10 kept its level-10 grant until a relog. After the fix a level-up recalculates the player's own passive auras: from 10 to 20 the Strength grant goes from 9 to 14 and the ranged attack power from 10 to 20.",
+  "timeout_ms": 60000,
+  "players": [
+    {"id": "strength", "race": 1, "class": 10, "level": 10},
+    {"id": "agility", "race": 1, "class": 10, "level": 10}
+  ],
+  "steps": [
+    {"action": "wait", "label": "Let login hooks settle", "ms": 3000},
+    {"action": "unlearn", "actor": "strength", "spell": 129243},
+    {"action": "unlearn", "actor": "agility", "spell": 129243},
+    {"action": "learn", "actor": "strength", "spell": 84864},
+    {"action": "learn", "actor": "agility", "spell": 84865},
+    {"action": "assert", "label": "Path of Strength applies its Stat Buff", "actor": "strength", "metric": "aura", "spell": 820043, "equals": 1, "within_ms": 3000},
+    {"action": "assert", "label": "Path of Agility links its ranged attack power", "actor": "agility", "metric": "aura", "spell": 954688, "equals": 1, "within_ms": 3000},
+    {"action": "assert", "label": "At 10 the Strength grant is 9", "actor": "strength", "metric": "aura_amount", "spell": 820043, "effect": 1, "equals": 9},
+    {"action": "assert", "label": "At 10 the ranged attack power grant is 10", "actor": "agility", "metric": "aura_amount", "spell": 954688, "effect": 1, "equals": 10},
+
+    {"action": "set_level", "actor": "strength", "value": 20},
+    {"action": "set_level", "actor": "agility", "value": 20},
+    {"action": "assert", "label": "At 20 without a relog the Strength grant is 14", "actor": "strength", "metric": "aura_amount", "spell": 820043, "effect": 1, "equals": 14},
+    {"action": "assert", "label": "and the ranged attack power grant is 20", "actor": "agility", "metric": "aura_amount", "spell": 954688, "effect": 1, "equals": 20}
+  ]
+}

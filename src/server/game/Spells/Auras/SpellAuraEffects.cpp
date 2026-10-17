@@ -5480,6 +5480,15 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
         (mode & AURA_EFFECT_HANDLE_REAL))
         target->ToPlayer()->UpdateSpellDamageAndHealingBonus();
 
+    // wow-realms: Path of Duality's crit reads the higher of Agility and Intellect, so its melee,
+    // ranged and spell crit follow this dummy on and off beside the spell power refresh above.
+    if (GetId() == SPELL_PATH_OF_DUALITY_STAT_BUFF && target->IsPlayer() && (mode & AURA_EFFECT_HANDLE_REAL))
+    {
+        Player* player = target->ToPlayer();
+        player->UpdateAllCritPercentages();
+        player->UpdateAllSpellCritChances();
+    }
+
     Unit* caster = GetCaster();
 
     if (mode & AURA_EFFECT_HANDLE_REAL)
