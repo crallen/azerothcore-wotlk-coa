@@ -1203,6 +1203,9 @@ public:
 
     void GiveXP(uint32 xp, Unit* victim, float group_rate = 1.0f, bool isLFGReward = false);
     void GiveLevel(uint8 level);
+    // wow-realms: recalculates the per-level part of the player's own passive auras, which
+    // otherwise keeps the level they were applied at until a relog.
+    void RecalculateLevelScaledPassiveAuras();
 
     void InitStatsForLevel(bool reapplyMods = false);
 
@@ -2045,6 +2048,9 @@ public:
 
     void UpdateDefenseBonusesMod();
     inline void RecalculateRating(CombatRating cr) { ApplyRatingMod(cr, 0, true);}
+    // wow-realms: the stat a crit chance reads; on Path of Duality, Agility and Intellect each
+    // read the higher of the two.
+    [[nodiscard]] float GetCritStat(Stats stat) const;
     float GetMeleeCritFromAgility();
     void GetDodgeFromAgility(float& diminishing, float& nondiminishing);
     [[nodiscard]] float GetMissPercentageFromDefence() const;

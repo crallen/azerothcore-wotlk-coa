@@ -10032,8 +10032,9 @@ int32 Unit::SpellBaseDamageBonusDone(SpellSchoolMask schoolMask)
         if (HasAura(84866))
             DoneAdvertisedBenefit = int32(std::clamp<int64>(int64(DoneAdvertisedBenefit) * 2,
                 std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max()));
-        else if (HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF)) // wow-realms: 75% more, Path of Duality
-            DoneAdvertisedBenefit = int32(std::clamp<int64>(int64(DoneAdvertisedBenefit) * 7 / 4,
+        else if (HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF)) // wow-realms: 75% more, Path of Duality, then 30% of Intellect
+            DoneAdvertisedBenefit = int32(std::clamp<int64>(int64(DoneAdvertisedBenefit) * 7 / 4
+                + int64(CalculatePct(GetStat(STAT_INTELLECT), PATH_OF_DUALITY_INTELLECT_SPELL_POWER_PCT)),
                 std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max()));
     }
     return DoneAdvertisedBenefit;
@@ -10842,8 +10843,9 @@ int32 Unit::SpellBaseHealingBonusDone(SpellSchoolMask schoolMask)
         if (HasAura(84866) || HasAura(84867)) // wow-realms: Path of Healing (84867)
             AdvertisedBenefit = int32(std::clamp<int64>(int64(AdvertisedBenefit) * 2,
                 std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max()));
-        else if (HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF)) // wow-realms: 75% more, Path of Duality
-            AdvertisedBenefit = int32(std::clamp<int64>(int64(AdvertisedBenefit) * 7 / 4,
+        else if (HasAura(SPELL_PATH_OF_DUALITY_STAT_BUFF)) // wow-realms: 75% more, Path of Duality, then 30% of Intellect
+            AdvertisedBenefit = int32(std::clamp<int64>(int64(AdvertisedBenefit) * 7 / 4
+                + int64(CalculatePct(GetStat(STAT_INTELLECT), PATH_OF_DUALITY_INTELLECT_SPELL_POWER_PCT)),
                 std::numeric_limits<int32>::min(), std::numeric_limits<int32>::max()));
     }
     return AdvertisedBenefit;
