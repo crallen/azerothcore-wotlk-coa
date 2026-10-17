@@ -68,6 +68,7 @@ struct Player
     uint8 GetLevel() const { return playerLevel; }
     uint32 getClass() const { return playerClass; }
     float GetStat(Stats stat) const { return stats[stat]; }
+    float GetCritStat(Stats stat) const { return stats[stat]; }
     float GetCreateStat(Stats) const { return createAgility; }
     float GetPctModifierValue(UnitMods, UnitModifierPctType) const { return 1.0f; }
     bool HasAuraTypeWithMiscvalue(AuraType, uint32) const { return false; }
