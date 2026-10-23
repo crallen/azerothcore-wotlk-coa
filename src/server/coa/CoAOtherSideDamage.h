@@ -5,7 +5,6 @@
 #ifndef COA_OTHER_SIDE_DAMAGE_H
 #define COA_OTHER_SIDE_DAMAGE_H
 
-#include "CoACreatureScaling.h"
 #include "DBCStores.h"
 #include "Map.h"
 #include "Random.h"
@@ -25,10 +24,9 @@ namespace CoAOtherSide
     constexpr float LogNormalLevel = 25.0f;
     constexpr float MaxLevel = 60.0f;
 
-    inline float Unscaled(Unit const* attacker, Unit const* target, float value)
+    inline float Unscaled(Unit const*, Unit const*, float value)
     {
-        float const multiplier = CreatureScaling::DamageMultiplier(target, attacker);
-        return multiplier > 0.0f ? value / multiplier : value;
+        return value;
     }
 
     inline float Logged(Unit const* attacker, Unit const* target, Damage3 const& damage)
