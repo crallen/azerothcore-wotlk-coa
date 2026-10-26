@@ -95,6 +95,13 @@ uint8 ClampLevel(uint32 key)
     return uint8(std::clamp<uint32>(key, 1, MaxLevel));
 }
 
+// wow-realms: an item written at or above the scaling level keeps its written stats.
+uint8 RaisedLevel(uint32 key, uint32 itemLevel)
+{
+    uint8 const level = ClampLevel(key);
+    return level > itemLevel ? level : 0;
+}
+
 uint32 ClientKey(uint32 level)
 {
     static constexpr std::array<uint8, 20> AboveSixty = { 25, 26, 28, 30, 31, 32, 32, 33, 34, 35,

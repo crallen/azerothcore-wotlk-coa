@@ -23,7 +23,8 @@ constexpr uint32 InspectSlots = 19;
 constexpr uint32 RecordFields = 39;
 constexpr uint32 RecordSize = RecordFields * sizeof(uint32);
 constexpr std::size_t ItemStatResponseSize = 168;
-constexpr uint8 MaxLevel = 65;
+// wow-realms: the client's last ItemStat.dbc row, ClientKey(70); upstream stops at 65.
+constexpr uint8 MaxLevel = 105;
 constexpr std::size_t ResistanceCount = 6;
 
 struct Row
@@ -61,6 +62,8 @@ private:
 [[nodiscard]] uint8 DropLevel(uint8 looterLevel, int32 offset);
 [[nodiscard]] uint32 DropBase(uint8 looterLevel, int32 offset);
 [[nodiscard]] uint8 ClampLevel(uint32 key);
+// wow-realms: ClampLevel(key) when it is above the item's written item level, else 0: scaling only raises.
+[[nodiscard]] uint8 RaisedLevel(uint32 key, uint32 itemLevel);
 [[nodiscard]] uint32 ClientKey(uint32 level);
 [[nodiscard]] uint32 ClientBaseForKey(uint32 key);
 [[nodiscard]] bool WearsRebornArmor(uint8 playerClass);
