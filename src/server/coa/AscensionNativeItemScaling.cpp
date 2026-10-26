@@ -338,7 +338,9 @@ uint32 DropKey(Player const* looter, uint32 base)
     return ItemLadder::ClientKey(base);
 }
 
-void AssignLevel(Player* owner, Item* item, uint32 key)
+// wow-realms: onlyRaise keeps an item written at or above the key's level unscaled; a scaled dungeon's loot,
+// which scales up and down, passes false.
+void AssignLevel(Player* owner, Item* item, uint32 key, bool onlyRaise = true)
 {
     if (!enabled.load(std::memory_order_relaxed) || !owner || !item || item->IsEquipped())
         return;
@@ -347,7 +349,10 @@ void AssignLevel(Player* owner, Item* item, uint32 key)
     if (!IsScalingItem(proto) || StoredLevel(item))
         return;
 
-    uint8 const level = ItemLadder::ClampLevel(key);
+    uint8 const level = onlyRaise ? ItemLadder::RaisedLevel(key, proto->ItemLevel) : ItemLadder::ClampLevel(key);
+    if (!level)
+        return;
+
     {
         std::unique_lock lock(levelsMutex);
         instanceLevels[item->GetGUID().GetCounter()] = level;
@@ -368,8 +373,11 @@ void AssignDropLevel(Player* looter, Item* item, uint32 base = 0)
     if (!looter || !item)
         return;
 
-    if (LootScalesFor(looter))
-        AssignLevel(looter, item, DropKey(looter, base));
+    uint32 const key = DropKey(looter, base);
+    if (LocalLevelScaling::DungeonLootScales(looter))
+        AssignLevel(looter, item, key, false);
+    else if (ScalingChosenBy(looter))
+        AssignLevel(looter, item, key);
 }
 
 void AssignQuestRewardLevel(Player* player, Item* item)
