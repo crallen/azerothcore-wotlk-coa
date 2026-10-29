@@ -133,6 +133,17 @@ uint32 ClientBaseForKey(uint32 key)
     return below;
 }
 
+uint32 ScaledRequiredLevel(uint32 rowRequiredLevel, uint32 level)
+{
+    return std::min(rowRequiredLevel, ClientBaseForKey(level));
+}
+
+Row ScaledRow(Row row, uint32 level)
+{
+    row.RequiredLevel = ScaledRequiredLevel(row.RequiredLevel, level);
+    return row;
+}
+
 bool WearsRebornArmor(uint8 playerClass)
 {
     return playerClass >= CLASS_WARRIOR && playerClass <= CLASS_SPIRIT_MAGE && playerClass != CLASS_HERO;
