@@ -740,7 +740,7 @@ void Player::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bo
         weaponMinDamage = lvl * 0.85f * attackSpeedMod;
         weaponMaxDamage = lvl * 1.25f * attackSpeedMod;
     }
-    else if (!CanUseAttackType(attType)) // check if player not in form but still can't use (disarm case)
+    else if (!CanUseAttackType(attType) && !IsInVenomancerForm()) // disarm case; Venomancer forms ignore disarm as Druid forms do
     {
         // cannot use ranged/off attack, set values to 0
         if (attType != BASE_ATTACK)
