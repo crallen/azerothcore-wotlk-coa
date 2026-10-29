@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "name": "Item scaling: a low-level character can wear the laddered quest reward scaled for it",
+  "contract": "Requires DestinyWeaver.Enable=1, CoA.ItemScaling=1, CoA.ItemScaling.Native=1 and CoA.ItemScaling.Native.QuestRewards=1 with ItemStat.dbc in the data directory. Wolves Across the Border 33 is a level 2 quest whose first choice reward is Soft Fur-lined Shoes 80 (white cloth feet, item level 3, required level 1). A level 3 character with scaling on stores the shoes at the client key 5, ItemLadder::ClientKey(3). ItemStat.dbc's row for item 80 at level 5 carries required level 5, which the scaled shoes cap at 3, the level whose client key is 5, so the character that earned them can equip them. Quest-giver dialogs and client rendering are not tested.",
+  "timeout_ms": 60000,
+  "players": [
+    { "id": "scaled", "race": 1, "class": 1, "level": 3 }
+  ],
+  "steps": [
+    { "action": "wait", "label": "Let the fixture settle", "ms": 2000 },
+    { "action": "level_scaling_packet", "actor": "scaled", "value": 1 },
+    { "action": "wait", "ms": 1000 },
+    { "action": "prepare_quest", "actor": "scaled", "quest": 33 },
+    { "action": "reward_quest", "actor": "scaled", "quest": 33, "choice": 0 },
+    { "action": "assert", "actor": "scaled", "metric": "quest_rewarded", "quest": 33, "equals": 1 },
+    { "action": "assert", "label": "The reward is the authored shoes", "actor": "scaled", "metric": "item_count", "item": 80, "equals": 1 },
+    { "action": "assert", "label": "The shoes store the client key 5 for level 3", "actor": "scaled", "metric": "carried_item_scaling_level", "item": 80, "equals": 5 },
+    { "action": "assert", "label": "DISCRIMINATING: the shoes require level 3, not the ladder row's 5", "actor": "scaled", "metric": "carried_item_required_level", "item": 80, "equals": 3 },
+    { "action": "equip", "label": "The level 3 character equips the shoes", "actor": "scaled", "item": 80, "slot": 7 },
+    { "action": "assert", "label": "The shoes are worn", "actor": "scaled", "metric": "equipped_item", "slot": 7, "equals": 80 }
+  ]
+}

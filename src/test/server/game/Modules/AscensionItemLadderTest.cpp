@@ -211,6 +211,28 @@ TEST(AscensionItemLadder, AppliedRowReplacesStatsDamageArmorAndPrice)
     EXPECT_EQ(proto.SellPrice, 12345u);
 }
 
+// wow-realms: a scaled item needs no higher level than the character its scaling level was made for.
+TEST(AscensionItemLadder, ScaledRequiredLevelIsAtMostTheKeysCharacterLevel)
+{
+    EXPECT_EQ(ItemLadder::ScaledRequiredLevel(5, 5), 3u);
+    EXPECT_EQ(ItemLadder::ScaledRequiredLevel(17, 18), 16u);
+    EXPECT_EQ(ItemLadder::ScaledRequiredLevel(24, 26), 23u);
+    EXPECT_EQ(ItemLadder::ScaledRequiredLevel(14, 33), 14u);
+    EXPECT_EQ(ItemLadder::ScaledRequiredLevel(61, 86), 61u);
+    EXPECT_EQ(ItemLadder::ScaledRequiredLevel(70, 105), 70u);
+}
+
+TEST(AscensionItemLadder, ScaledRowCapsOnlyTheRequiredLevel)
+{
+    ItemLadder::Row row = ItemLadder::ParseRecord(SampleRecord().data());
+    row.RequiredLevel = 9;
+    ItemLadder::Row const scaled = ItemLadder::ScaledRow(row, 9);
+    EXPECT_EQ(scaled.RequiredLevel, 7u);
+    EXPECT_EQ(scaled.Armor, row.Armor);
+    EXPECT_EQ(scaled.SellPrice, row.SellPrice);
+    EXPECT_EQ(ItemLadder::ScaledRow(row, 33).RequiredLevel, 9u);
+}
+
 TEST(AscensionItemLadder, StatResponseIsTheClientsItemStatRecord)
 {
     ItemTemplate proto{};

@@ -5,7 +5,7 @@
   "timeout_ms": 120000,
   "location": { "map": 0, "x": -9465, "y": 64, "z": 56, "o": 0 },
   "players": [
-    { "id": "hero", "race": 10, "class": 17, "level": 8 }
+    { "id": "hero", "race": 10, "class": 17, "level": 9 }
   ],
   "creatures": [
     { "id": "rake", "owner": "hero", "entry": 5807, "level": 10, "health": 1, "distance": 2 }
@@ -28,7 +28,7 @@
     {
       "action": "assert",
       "label": "SETUP: the looted armor stores a non-zero scaling instance level",
-      "actor": "hero", "metric": "carried_item_scaling_level", "item": 17922, "equals": 10, "within_ms": 2000
+      "actor": "hero", "metric": "carried_item_scaling_level", "item": 17922, "equals": 11, "within_ms": 2000
     },
     {
       "action": "assert",
@@ -53,7 +53,7 @@
     {
       "action": "assert",
       "label": "That packet's level field carries the stored instance level",
-      "actor": "hero", "metric": "server_packet_u32", "opcode": 1400, "offset": 8, "index": 1, "equals": 10
+      "actor": "hero", "metric": "server_packet_u32", "opcode": 1400, "offset": 8, "index": 1, "equals": 11
     },
     {
       "action": "personal_bank_swap", "label": "Withdraw the scaled armor again",
@@ -72,12 +72,12 @@
     {
       "action": "assert",
       "label": "That second packet's level field still carries the stored instance level",
-      "actor": "hero", "metric": "server_packet_u32", "opcode": 1400, "offset": 8, "index": 1, "equals": 10
+      "actor": "hero", "metric": "server_packet_u32", "opcode": 1400, "offset": 8, "index": 1, "equals": 11
     },
     {
       "action": "assert",
       "label": "The round trip keeps the stored scaling instance level",
-      "actor": "hero", "metric": "carried_item_scaling_level", "item": 17922, "equals": 10
+      "actor": "hero", "metric": "carried_item_scaling_level", "item": 17922, "equals": 11
     },
     {
       "action": "assert",

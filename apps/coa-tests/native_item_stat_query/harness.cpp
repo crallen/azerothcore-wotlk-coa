@@ -96,6 +96,12 @@ Row StockRow(ItemTemplate const& proto, uint32 armorReborn)
     return {proto.ItemId, proto.ItemLevel, proto.Armor, armorReborn};
 }
 
+// The stub row has no required level to cap; AscensionItemLadderTest covers the cap.
+Row ScaledRow(Row row, uint32)
+{
+    return row;
+}
+
 WorldPacket BuildItemStatResponse(uint32 itemId, uint32 level, Row const& row, ItemTemplate const*)
 {
     WorldPacket packet(itemId, level);
