@@ -66,6 +66,12 @@ private:
 [[nodiscard]] uint8 RaisedLevel(uint32 key, uint32 itemLevel);
 [[nodiscard]] uint32 ClientKey(uint32 level);
 [[nodiscard]] uint32 ClientBaseForKey(uint32 key);
+// wow-realms: a ladder row's required level, at most ClientBaseForKey(level), the character level the item's
+// scaling level was made for, so the character it was scaled for can wear it.
+[[nodiscard]] uint32 ScaledRequiredLevel(uint32 rowRequiredLevel, uint32 level);
+// wow-realms: the ladder row for level with ScaledRequiredLevel applied, as both the scaled item and the
+// client's stat reply carry it, so the tooltip asks for the level the server checks.
+[[nodiscard]] Row ScaledRow(Row row, uint32 level);
 [[nodiscard]] bool WearsRebornArmor(uint8 playerClass);
 [[nodiscard]] uint32 AuthoredRebornArmor(uint32 itemAddonReborn, uint32 ownArmor);
 [[nodiscard]] Row StockRow(ItemTemplate const& proto, uint32 armorReborn);

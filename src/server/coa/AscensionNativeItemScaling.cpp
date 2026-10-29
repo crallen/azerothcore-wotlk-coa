@@ -245,7 +245,8 @@ ItemTemplate const* InstanceTemplate(Item const* item)
     auto [scaled, inserted] = scaledTemplates.try_emplace((uint64(base->ItemId) << 8) | level, *base);
     if (inserted)
     {
-        ItemLadder::ApplyRow(scaled->second, *row);
+        // wow-realms: the row for key 5 asks for level 5 of the level 3 character the key was made for.
+        ItemLadder::ApplyRow(scaled->second, ItemLadder::ScaledRow(*row, level));
         ItemScaling::RebracketDisenchant(scaled->second, *base, row->Level);
         scaledRebornArmor.emplace(&scaled->second, row->ArmorReborn);
     }
@@ -494,7 +495,8 @@ bool HandleItemStatQuery(WorldSession* session, WorldPacket const& packet)
     if (!found)
         return true;
 
-    ItemLadder::Row row = *found;
+    // wow-realms: the same capped required level the scaled item carries.
+    ItemLadder::Row row = ItemLadder::ScaledRow(*found, level);
     if (!reborn)
         row.ArmorReborn = row.Armor;
     WorldPacket reply = ItemLadder::BuildItemStatResponse(itemId, level, row, proto);
