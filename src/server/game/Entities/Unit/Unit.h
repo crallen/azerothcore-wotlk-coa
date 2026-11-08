@@ -300,6 +300,10 @@ enum ExtraAttackSpells
     SPELL_HACK_AND_SLASH         = 66923
 };
 
+// wow-realms: the aura a Hero on Path of Duality carries: attack power from the higher of
+// Strength and Agility, and 75% more spell power from items and effects.
+constexpr uint32 SPELL_PATH_OF_DUALITY_STAT_BUFF = 820054;
+
 class DispelInfo
 {
 public:
